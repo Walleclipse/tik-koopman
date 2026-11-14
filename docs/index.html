@@ -4,11 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>TIK: Tangent-Invariant Koopman</title>
-<meta name="description" content="Tangent-Invariant Koopman (TIK): a Koopman controller that is stable on its learned model can fall on the real system. TIK makes the certificate hold on the plant.">
+<meta name="description" content="Tangent-Invariant Koopman (TIK): a learned robot controller can pass its safety check on the model and still fall on the real system. TIK makes the safety check hold on the real system.">
 <meta name="theme-color" content="#ffffff">
 <meta property="og:type" content="website">
 <meta property="og:title" content="TIK: Tangent-Invariant Koopman">
-<meta property="og:description" content="Certified on the model. Stable on the robot.">
+<meta property="og:description" content="A robot controller can pass its safety check on paper and still fall in the real world. TIK fixes that.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%231d1d1f%27/%3E%3Cpath d=%27M32 12v34%27 stroke=%27%230a9d8f%27 stroke-width=%278%27 stroke-linecap=%27round%27/%3E%3Ccircle cx=%2732%27 cy=%2711%27 r=%277%27 fill=%27%23fff%27/%3E%3Crect x=%2714%27 y=%2748%27 width=%2736%27 height=%278%27 rx=%274%27 fill=%27%23fff%27/%3E%3C/svg%3E">
+<meta property="og:image" content="https://walleclipse.github.io/tik-koopman/assets/og.png">
 <meta property="og:url" content="https://walleclipse.github.io/tik-koopman/">
 <link rel="canonical" href="https://walleclipse.github.io/tik-koopman/">
 <style>
@@ -133,7 +136,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 .step svg{width:100%;height:auto;margin-bottom:14px}
 .step h3{margin:0;font-size:24px;letter-spacing:-.02em}
 .step p{margin:8px 0 0;font-size:15.5px;color:var(--ink2)}
-.step .n{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--tik-ink);margin-bottom:8px}
+.step .n{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--tik-ink);margin:2px 0 8px}
 .step svg text{font-family:var(--font);font-size:11px;fill:var(--ink3)}
 
 /* stats */
@@ -166,7 +169,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 
 <nav><div class="wrap">
   <a class="brand" href="#top" aria-label="TIK home">TIK</a>
   <ul>
-    <li><a href="#loops">Two loops</a></li><li><a href="#tangent">Tangent space</a></li><li><a href="#spectrum">Spectrum</a></li><li><a href="#scalar">Try it</a></li><li><a href="#method">Method</a></li><li><a href="#cite">Cite</a></li>
+    <li><a href="#problem">The problem</a></li><li><a href="#fix">The fix</a></li><li><a href="#stability">Stability</a></li><li><a href="#scalar">Try it</a></li><li><a href="#method">How it works</a></li><li><a href="#cite">Cite</a></li>
     <li><a class="pill-btn" href="https://github.com/Walleclipse/tik-koopman">Code</a></li>
   </ul>
 </div></nav>
@@ -174,7 +177,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 
 <header class="hero" id="top"><div class="wrap">
   <p class="eyebrow">Tangent-Invariant Koopman</p>
   <h1>Certified on the model.<br><span class="dim">Stable on the robot.</span></h1>
-  <p class="sub">A Koopman controller can pass its stability test and still fall on the real system. TIK closes the gap.</p>
+  <p class="sub">A learned robot controller can pass its safety check on paper and still fall in the real world. TIK fixes that.</p>
   <div class="btns">
     <a class="btn solid" href="https://github.com/Walleclipse/tik-koopman">Code on GitHub</a>
     <a class="btn" href="#paper" aria-disabled="true">Paper <small>soon</small></a>
@@ -182,60 +185,64 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 
 
   <div class="stage" id="stage">
     <div class="pane">
-      <div class="pane-h"><b class="std">Standard Koopman</b><span class="chip idle" id="st-std"><i></i>simulating</span></div>
+      <div class="pane-h"><b class="std">Standard learned controller</b><span class="chip idle" id="st-std"><i></i>simulating</span></div>
       <canvas id="cv-std" width="960" height="600" role="img" aria-label="Cart-pole controlled by a Standard Koopman controller: the pole falls"></canvas>
-      <div class="pane-f"><span class="chip ok"><i></i>Model: stable &nbsp;<span class="num" id="nom-std"></span></span><span class="chip bad"><i></i>Plant: unstable &nbsp;<span class="num" id="pl-std"></span></span></div>
+      <div class="pane-f"><span class="chip ok"><i></i>Safety check on the model: pass</span><span class="chip bad"><i></i>Real system: unstable &nbsp;<span class="num" id="pl-std"></span></span></div>
     </div>
     <div class="pane">
-      <div class="pane-h"><b class="tik">TIK</b><span class="chip idle" id="st-tik"><i></i>simulating</span></div>
+      <div class="pane-h"><b class="tik">TIK controller</b><span class="chip idle" id="st-tik"><i></i>simulating</span></div>
       <canvas id="cv-tik" width="960" height="600" role="img" aria-label="Cart-pole controlled by a TIK controller: the pole is recovered"></canvas>
-      <div class="pane-f"><span class="chip ok"><i></i>Model: stable &nbsp;<span class="num" id="nom-tik"></span></span><span class="chip ok"><i></i>Plant: stable &nbsp;<span class="num" id="pl-tik"></span></span></div>
+      <div class="pane-f"><span class="chip ok"><i></i>Safety check on the model: pass</span><span class="chip ok"><i></i>Real system: stable &nbsp;<span class="num" id="pl-tik"></span></span></div>
     </div>
   </div>
   <div class="stage-ctl">
-    <div class="ctl"><label for="tilt">Initial tilt</label><input id="tilt" type="range" min="5" max="35" step="1" value="20" aria-label="Initial tilt in degrees"><span class="val num" id="tilt-v">20°</span></div>
+    <div class="ctl"><label for="tilt">Starting tilt</label><input id="tilt" type="range" min="5" max="35" step="1" value="20" aria-label="Initial tilt in degrees"><span class="val num" id="tilt-v">20°</span></div>
     <button class="replay" id="replay">Replay</button>
   </div>
-  <p class="cap">Same plant, same tilt, local feedback gain of each trained controller (cart-pole, force limit 10 N, shown at half speed). &ldquo;ρ&rdquo; is the spectral radius of the closed loop.</p>
+  <p class="cap">The task: keep a pole balanced upright on a moving cart. Both controllers were learned from the same data and both passed the same safety check. Then we ran them on the simulated cart-pole, starting from the same tilt (half speed). Left: the pole falls. Right: it stays up. <b>ρ</b> measures how fast a small error grows each step; below 1 is stable.</p>
 </div></header>
 
 <main>
-<section class="sec" id="loops"><div class="wrap">
+<section class="sec" id="problem"><div class="wrap">
   <p class="eyebrow rv">The problem</p>
-  <h2 class="rv">Two loops. One is certified.<br>The other one runs.</h2>
+  <h2 class="rv">A safety check on the model is not a safety check on the robot</h2>
+  <p class="sub rv" style="max-width:40ch">Learned controllers are checked on a learned model of the system. The robot does not run on the model.</p>
   <div class="loops">
-    <div class="loop rv"><h3>Latent loop</h3><div class="t">where stability is checked</div>
-      <svg viewBox="0 0 420 150" role="img" aria-label="The controller feeds the learned linear model, which feeds its own prediction back"><defs><marker id="a1" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 1L10 5L0 9z" fill="rgba(29,29,31,.7)"/></marker></defs>
-        <rect x="14" y="26" width="132" height="54" rx="12"/><text x="80" y="50" text-anchor="middle">Controller</text><text class="d" x="80" y="68" text-anchor="middle">u = −K z</text>
-        <rect class="t" x="236" y="26" width="170" height="54" rx="12"/><text x="321" y="50" text-anchor="middle">Learned linear model</text><text class="d" x="321" y="68" text-anchor="middle">z⁺ = A z + B u</text>
+    <div class="loop rv"><h3>What the check looks at</h3><div class="t">a prediction, followed forward in time</div>
+      <svg viewBox="0 0 420 150" role="img" aria-label="The controller acts on the learned model, and the model's own prediction is fed back to the controller">
+        <defs><marker id="a1" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 1L10 5L0 9z" fill="rgba(29,29,31,.7)"/></marker></defs>
+        <rect x="14" y="26" width="132" height="54" rx="12"/><text x="80" y="50" text-anchor="middle">Controller</text><text class="d" x="80" y="68" text-anchor="middle">picks an action</text>
+        <rect class="t" x="236" y="26" width="170" height="54" rx="12"/><text x="321" y="50" text-anchor="middle">Learned model</text><text class="d" x="321" y="68" text-anchor="middle">predicts what happens</text>
         <path class="w" d="M146 53H234" marker-end="url(#a1)"/><path class="w" d="M321 80V120H80V82" marker-end="url(#a1)"/>
         <circle class="sig" r="3.5"><animateMotion dur="3.2s" repeatCount="indefinite" path="M146 53H236"/></circle>
         <circle class="sig" r="3.5"><animateMotion dur="3.2s" repeatCount="indefinite" begin="1.1s" path="M321 80V120H80V80"/></circle>
-        <text class="d" x="200" y="140" text-anchor="middle">its own prediction</text>
+        <text class="d" x="200" y="140" text-anchor="middle">the model's own prediction is fed back</text>
       </svg>
-      <span class="chip ok"><i></i>ρ(A − BK) &lt; 1</span></div>
-    <div class="loop rv"><h3>Deployed loop</h3><div class="t">what the robot executes</div>
-      <svg viewBox="0 0 420 150" role="img" aria-label="The plant produces the next state and the encoder re-encodes it at every step"><defs><marker id="a2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 1L10 5L0 9z" fill="rgba(29,29,31,.7)"/></marker></defs>
-        <rect class="t" x="8" y="26" width="96" height="54" rx="12"/><text x="56" y="50" text-anchor="middle">Re-encode</text><text class="d" x="56" y="68" text-anchor="middle">z = Φ(x)</text>
-        <rect x="152" y="26" width="104" height="54" rx="12"/><text x="204" y="50" text-anchor="middle">Controller</text><text class="d" x="204" y="68" text-anchor="middle">u = −K z</text>
-        <rect class="p" x="304" y="26" width="108" height="54" rx="12"/><text x="358" y="50" text-anchor="middle">True plant</text><text class="d" x="358" y="68" text-anchor="middle">x⁺ = f(x, u)</text>
-        <path class="w" d="M104 53H150" marker-end="url(#a2)"/><path class="w" d="M256 53H302" marker-end="url(#a2)"/><path class="w" d="M358 80V120H56V82" marker-end="url(#a2)"/>
-        <circle class="sig o" r="3.5"><animateMotion dur="3.6s" repeatCount="indefinite" path="M104 53H152"/></circle>
-        <circle class="sig o" r="3.5"><animateMotion dur="3.6s" repeatCount="indefinite" begin="1.2s" path="M358 80V120H56V80"/></circle>
-        <text class="d" x="206" y="140" text-anchor="middle">the measured state</text>
+      <span class="chip ok"><i></i>The check says: stable</span></div>
+    <div class="loop rv"><h3>What the robot really does</h3><div class="t">the real system, measured at every step</div>
+      <svg viewBox="0 0 420 150" role="img" aria-label="The real system moves, the robot measures its state, converts it for the model, and the controller acts">
+        <defs><marker id="a2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 1L10 5L0 9z" fill="rgba(29,29,31,.7)"/></marker></defs>
+        <rect class="t" x="8" y="26" width="104" height="54" rx="12"/><text x="60" y="50" text-anchor="middle">Convert</text><text class="d" x="60" y="68" text-anchor="middle">to model's terms</text>
+        <rect x="150" y="26" width="104" height="54" rx="12"/><text x="202" y="50" text-anchor="middle">Controller</text><text class="d" x="202" y="68" text-anchor="middle">picks an action</text>
+        <rect class="p" x="296" y="26" width="116" height="54" rx="12"/><text x="354" y="50" text-anchor="middle">Real system</text><text class="d" x="354" y="68" text-anchor="middle">actually moves</text>
+        <path class="w" d="M112 53H148" marker-end="url(#a2)"/><path class="w" d="M254 53H294" marker-end="url(#a2)"/><path class="w" d="M354 80V120H60V82" marker-end="url(#a2)"/>
+        <circle class="sig o" r="3.5"><animateMotion dur="3.6s" repeatCount="indefinite" path="M112 53H150"/></circle>
+        <circle class="sig o" r="3.5"><animateMotion dur="3.6s" repeatCount="indefinite" begin="1.2s" path="M354 80V120H60V80"/></circle>
+        <text class="d" x="206" y="140" text-anchor="middle">the measured state is converted at every step</text>
       </svg>
-      <span class="chip bad"><i></i>ρ(A<sub>f</sub> − B<sub>f</sub>KJ) can exceed 1</span></div>
+      <span class="chip bad"><i></i>Reality: can be unstable</span></div>
   </div>
-  <p class="cap rv">The Jacobian of the deployed loop contains <span class="math">J</span>, the derivative of the encoder at the target. The nominal certificate never sees it.</p>
+  <p class="cap rv">The conversion step adds a term that the check never includes. When the model is only approximately right, that term can turn a pass into a fall.</p>
 </div></section>
 
-<section class="sec" id="tangent" style="background:var(--bg2)"><div class="wrap">
-  <p class="eyebrow rv">The condition</p>
-  <h2 class="rv">Match the plant<br>on the tangent space</h2>
+<section class="sec" id="fix" style="background:var(--bg2)"><div class="wrap">
+  <p class="eyebrow rv">The fix</p>
+  <h2 class="rv">Make the model agree with the real system near the target</h2>
+  <p class="sub rv" style="max-width:42ch">Nudge the state a tiny bit. The real system moves in one direction. A good model must predict that same move.</p>
   <div class="viz rv" style="background:#fff;margin-top:44px">
     <div class="viz-top">
       <div class="seg" role="group" aria-label="Model"><button id="tg-std" aria-pressed="true">Standard</button><button id="tg-tik" aria-pressed="false">TIK</button></div>
-      <div class="ctl" style="flex:1 1 280px;max-width:420px"><label for="delta">Model error</label><input id="delta" type="range" min="0" max="100" value="45"><span class="val num" id="delta-v"></span></div>
+      <div class="ctl" style="flex:1 1 280px;max-width:440px"><label for="delta">How wrong the model is</label><input id="delta" type="range" min="0" max="100" value="45"><span class="val num" id="delta-v"></span></div>
     </div>
     <svg id="tg" viewBox="0 70 760 270" role="img" aria-label="A perturbation v moves the encoding along the tangent space; the true plant and the model map it to different places unless the model is tangent-invariant">
       <defs>
@@ -246,32 +253,33 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 
         <linearGradient id="mf" x1="0" x2="1"><stop offset="0" stop-color="#e3e3e8"/><stop offset=".5" stop-color="#8e8e93"/><stop offset="1" stop-color="#e3e3e8"/></linearGradient>
       </defs>
       <path d="M40 300 Q380 150 720 300" fill="none" stroke="url(#mf)" stroke-width="3.5" stroke-linecap="round"/>
-      <text x="64" y="324">encoded states  Φ(x)</text>
+      <text x="64" y="324">every state the model can represent</text>
       <line x1="60" y1="225" x2="720" y2="225" stroke="rgba(0,0,0,.18)" stroke-dasharray="4 6"/>
-      <text x="728" y="214" text-anchor="end">tangent space  range(J)</text>
-      <circle cx="380" cy="225" r="6" fill="#1d1d1f"/><text x="344" y="250">target</text>
-      <line x1="380" y1="225" x2="470" y2="225" stroke="#8e8e93" stroke-width="3" marker-end="url(#ar-g)"/><text x="412" y="246" style="fill:#8e8e93">J v</text>
-      <line id="tg-true" x1="380" y1="225" x2="560" y2="225" stroke="#1d1d1f" stroke-width="3.5" marker-end="url(#ar-w)"/><text x="548" y="244" style="fill:#1d1d1f">J A<tspan font-size="9" dy="3">f</tspan><tspan dy="-3"> v  (plant)</tspan></text>
+      <text x="728" y="214" text-anchor="end">directions the state can move</text>
+      <circle cx="380" cy="225" r="6" fill="#1d1d1f"/><text x="332" y="250">target state</text>
+      <line x1="380" y1="225" x2="470" y2="225" stroke="#8e8e93" stroke-width="3" marker-end="url(#ar-g)"/><text x="412" y="246" style="fill:#8e8e93">small nudge</text>
+      <line id="tg-true" x1="380" y1="225" x2="560" y2="225" stroke="#1d1d1f" stroke-width="3.5" marker-end="url(#ar-w)"/><text x="548" y="248" style="fill:#1d1d1f">real system moves here</text>
       <line id="tg-model" x1="380" y1="225" x2="560" y2="150" stroke="#e8730c" stroke-width="3.5" marker-end="url(#ar-o)"/>
-      <text id="tg-model-l" x="566" y="150" style="fill:#e8730c">A J v  (model)</text>
+      <text id="tg-model-l" x="566" y="150" style="fill:#e8730c">model predicts this</text>
       <line id="tg-err" x1="560" y1="225" x2="560" y2="150" stroke="rgba(0,0,0,.4)" stroke-dasharray="3 4"/>
     </svg>
-    <div class="readout"><div>mismatch  ‖A J v − J A<sub>f</sub> v‖<b id="tg-mm">0.00</b></div><div>closed-loop certificate for every gain K<b id="tg-cert"></b></div></div>
+    <div class="readout"><div>prediction error after one step<b id="tg-mm">0.00</b></div><div>does the model's safety check carry over to the real system?<b id="tg-cert"></b></div></div>
   </div>
-  <p class="cap rv">Tangent invariance: <span class="math">A J = J A<sub>f</sub></span> and <span class="math">B = J B<sub>f</sub></span>. Then every eigenvalue of the deployed Jacobian is an eigenvalue of the latent closed loop.</p>
+  <p class="cap rv">We call this <b>tangent invariance</b>: the model gets the first-order response of the real system right at the target. When it does, the real system inherits the model's safety check. In math: <span class="math">A J = J A<sub>f</sub></span> and <span class="math">B = J B<sub>f</sub></span>.</p>
 </div></section>
 
-<section class="sec" id="spectrum"><div class="wrap">
-  <p class="eyebrow rv">What it does to the poles</p>
-  <h2 class="rv">The plant's eigenvalues<br>land inside the model's</h2>
+<section class="sec" id="stability"><div class="wrap">
+  <p class="eyebrow rv">Stability, shown as dots</p>
+  <h2 class="rv">With TIK, the real system is stable whenever the model says so</h2>
+  <p class="sub rv" style="max-width:44ch">Each controller has a set of numbers that decide stability. Dots inside the circle are stable. Outside, unstable.</p>
   <div class="viz rv spec-wrap">
     <div>
-      <svg id="sp" viewBox="-190 -190 380 380" role="img" aria-label="Eigenvalues of the latent closed loop and of the deployed plant Jacobian in the complex plane, with the unit circle"></svg>
+      <svg id="sp" viewBox="-190 -190 380 380" role="img" aria-label="Stability numbers (eigenvalues) of the model and of the real system, with the stability circle"></svg>
     </div>
     <div>
       <div class="seg" role="group" aria-label="Model"><button id="sp-std" aria-pressed="true">Standard</button><button id="sp-tik" aria-pressed="false">TIK</button></div>
-      <div class="legend"><span><i class="dot"></i>latent closed loop</span><span><i class="ring"></i>plant (deployed)</span></div>
-      <div class="readout" style="margin-top:22px"><div>ρ latent<b id="sp-rl"></b></div><div>ρ plant<b id="sp-rp"></b></div></div>
+      <div class="legend"><span><i class="dot"></i>the model's numbers</span><span><i class="ring"></i>the real system's numbers</span></div>
+      <div class="readout" style="margin-top:22px"><div>largest number, model<b id="sp-rl"></b></div><div>largest number, real system<b id="sp-rp"></b></div></div>
       <p class="cap" id="sp-note" style="margin-top:20px"></p>
     </div>
   </div>
@@ -279,61 +287,62 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 
 
 <section class="sec" id="scalar" style="background:var(--bg2)"><div class="wrap">
   <p class="eyebrow rv">Try it</p>
-  <h2 class="rv">The smallest example<br>where the certificate lies</h2>
-  <p class="sub rv" style="max-width:44ch">Plant <span class="math">x⁺ = 1.1x + 0.2x² + u</span>, lift <span class="math">z = (x, x²)</span>. Both models predict <span class="math">x⁺</span> exactly.</p>
+  <h2 class="rv">A one-variable example you can play with</h2>
+  <p class="sub rv" style="max-width:46ch">A tiny system that blows up on its own: <span class="math">x⁺ = 1.1x + 0.2x² + u</span>. Two models both predict its next step exactly. Only one gives a controller that works on the real system.</p>
   <div class="viz rv" style="background:#fff">
     <div class="viz-top">
-      <div class="seg" role="group" aria-label="Model"><button id="m-std" aria-pressed="true">Standard fit</button><button id="m-tik" aria-pressed="false">TIK</button></div>
-      <div class="ctl" style="flex:1 1 280px;max-width:420px"><label for="x0">Initial state</label><input id="x0" type="range" min="-2.7" max="-1.3" step="0.01" value="-2"><span class="val num" id="x0v"></span></div>
+      <div class="seg" role="group" aria-label="Model"><button id="m-std" aria-pressed="true">Standard model</button><button id="m-tik" aria-pressed="false">TIK model</button></div>
+      <div class="ctl" style="flex:1 1 280px;max-width:420px"><label for="x0">Starting value</label><input id="x0" type="range" min="-2.7" max="-1.3" step="0.01" value="-2"><span class="val num" id="x0v"></span></div>
     </div>
-    <svg id="chart" viewBox="0 0 760 300" role="img" aria-label="Plant state and latent prediction over 40 steps on a log scale"></svg>
-    <div class="legend"><span><i style="width:22px;height:3px;border-radius:2px;background:var(--std)"></i>plant</span><span><i style="width:22px;height:0;border-top:3px dashed var(--tik);border-radius:0"></i>latent prediction</span></div>
-    <div class="readout"><div>ρ(A − BK)<b id="r-nom"></b></div><div>deployed F<b id="r-F"></b></div><div>step 30, latent<b id="r-lat"></b></div><div>step 30, plant<b id="r-pl"></b></div></div>
+    <svg id="chart" viewBox="0 0 760 300" role="img" aria-label="Real state and model prediction over 40 steps on a log scale"></svg>
+    <div class="legend"><span><i style="width:22px;height:3px;border-radius:2px;background:var(--std)"></i>what really happens</span><span><i style="width:22px;height:0;border-top:3px dashed var(--tik);border-radius:0"></i>what the model predicts</span></div>
+    <div class="readout"><div>safety check on the model (below 1 is stable)<b id="r-nom"></b></div><div>growth per step on the real system (below 1 is stable)<b id="r-F"></b></div><div>after 30 steps, model predicts<b id="r-lat"></b></div><div>after 30 steps, real system is at<b id="r-pl"></b></div></div><p class="cap">The vertical axis is the size of <span class="math">x</span> on a log scale: lower is better. The orange curve leaves the chart when the real system blows up.</p>
   </div>
 </div></section>
 
 <section class="sec" id="method"><div class="wrap">
-  <p class="eyebrow rv">Method</p>
-  <h2 class="rv">Fit. Parameterize. Certify.</h2>
+  <p class="eyebrow rv">How it works</p>
+  <h2 class="rv">Three steps</h2>
   <div class="steps">
     <div class="step rv">
       <svg viewBox="0 0 300 130" role="img" aria-label="Scatter of transitions with a fitted line"><rect x="0.5" y="0.5" width="299" height="129" rx="16" fill="#ffffff" stroke="rgba(0,0,0,.07)"/>
         <g fill="#1d1d1f" fill-opacity=".55" id="fit-pts"></g>
         <line x1="26" y1="100" x2="274" y2="30" stroke="#0b8f83" stroke-width="3" stroke-linecap="round" stroke-dasharray="320" stroke-dashoffset="320"><animate attributeName="stroke-dashoffset" from="320" to="0" dur="1.4s" begin="0.2s" fill="freeze"/></line>
-        <text x="26" y="122">x⁺ ≈ A<tspan font-size="8" dy="2">f</tspan><tspan dy="-2"> x + B</tspan><tspan font-size="8" dy="2">f</tspan><tspan dy="-2"> u</tspan></text></svg>
-      <div class="n">1</div><h3>Fit</h3><p>A local linearization from offline transitions near the target.</p></div>
+        <text x="26" y="122">logged data → local behavior</text></svg>
+      <div class="n">STEP 1</div><h3>Measure</h3><p>From logged data, learn how the real system behaves right next to the target.</p></div>
     <div class="step rv">
       <svg viewBox="0 0 300 130" role="img" aria-label="The matrix A as two blocks: the fitted dynamics on the tangent space and a free block on the complement"><rect x="0.5" y="0.5" width="299" height="129" rx="16" fill="#ffffff" stroke="rgba(0,0,0,.07)"/>
         <rect x="46" y="22" width="92" height="64" rx="10" fill="#0b8f83" fill-opacity=".9"/><rect x="146" y="22" width="108" height="64" rx="10" fill="#c8ccd2"/>
         <text x="92" y="58" text-anchor="middle" style="fill:#fff;font-size:12px">J Â<tspan font-size="8" dy="2">f</tspan><tspan dy="-2"> J⁺</tspan></text><text x="200" y="58" text-anchor="middle" style="fill:#1d1d1f;font-size:12px">W (I − J J⁺)</text>
-        <text x="92" y="104" text-anchor="middle">fixed by the fit</text><text x="200" y="104" text-anchor="middle">free to learn</text></svg>
-      <div class="n">2</div><h3>Parameterize</h3><p>Match the plant exactly on the tangent space. Learn the rest.</p></div>
+        <text x="92" y="104" text-anchor="middle">matches the real system</text><text x="200" y="104" text-anchor="middle">free to learn</text></svg>
+      <div class="n">STEP 2</div><h3>Build it in</h3><p>Force the model to agree with that measurement. Let it learn everything else freely.</p></div>
     <div class="step rv">
       <svg viewBox="0 0 300 130" role="img" aria-label="A fit error compared with a stability margin, and a terminal ellipsoid"><rect x="0.5" y="0.5" width="299" height="129" rx="16" fill="#ffffff" stroke="rgba(0,0,0,.07)"/>
-        <rect x="26" y="34" width="150" height="12" rx="6" fill="#e1e3e7"/><rect x="26" y="34" width="46" height="12" rx="6" fill="#0b8f83"/><text x="26" y="28">fit error η</text><text x="180" y="44">margin</text>
+        <rect x="26" y="34" width="150" height="12" rx="6" fill="#e1e3e7"/><rect x="26" y="34" width="46" height="12" rx="6" fill="#0b8f83"/><text x="26" y="28">measurement error</text><text x="180" y="44">safety margin</text>
         <ellipse cx="226" cy="92" rx="52" ry="22" fill="#0b8f83" fill-opacity=".14" stroke="#0b8f83" stroke-width="2" transform="rotate(-14 226 92)"/><ellipse cx="226" cy="92" rx="22" ry="9" fill="#0b8f83" fill-opacity=".25" transform="rotate(-14 226 92)"/>
-        <text x="26" y="104">stable if η &lt; margin</text><text x="26" y="120">invariant set Ω</text></svg>
-      <div class="n">3</div><h3>Certify</h3><p>Check the fit error against the stability margin. Build a terminal set.</p></div>
+        <text x="26" y="104">safe if error &lt; margin</text><text x="26" y="120">region that stays safe</text></svg>
+      <div class="n">STEP 3</div><h3>Check</h3><p>From data alone, test whether the controller is safe, and find a region where it stays safe.</p></div>
   </div>
 </div></section>
 
 <section class="sec" id="results" style="background:var(--bg2)"><div class="wrap">
-  <p class="eyebrow rv">In the paper</p>
-  <h2 class="rv">Simulation results</h2>
+  <p class="eyebrow rv">What we found</p>
+  <h2 class="rv">Results from the paper (all in simulation)</h2>
   <div class="stats">
-    <div class="stat rv"><b class="std"><span data-count="0">0</span><span style="font-size:.5em;color:var(--fg3)"> / 40</span></b><span>Standard Koopman controllers stable on the plant. All 40 pass the model's test.</span></div>
-    <div class="stat rv"><b class="tik"><span data-count="40">0</span><span style="font-size:.5em;color:var(--fg3)"> / 40</span></b><span>TIK controllers stable on the plant, on four unstable benchmarks.</span></div>
-    <div class="stat rv"><b><span data-count="420">0</span><span style="font-size:.5em;color:var(--fg3)"> / 420</span></b><span>recovery tests where TIK's local gain matches LQR on the true linearization.</span></div>
-    <div class="stat rv"><b><span data-count="88">0</span><span style="font-size:.5em;color:var(--fg3)"> %</span></b><span>cart-pole swing-up success at a 0.25 ms planning budget.</span></div>
+    <div class="stat rv"><b class="std"><span data-count="0">0</span><span style="font-size:.5em;color:var(--fg3)"> / 40</span></b><span>standard learned controllers that stay stable on the real system, although all 40 passed their safety check</span></div>
+    <div class="stat rv"><b class="tik"><span data-count="40">0</span><span style="font-size:.5em;color:var(--fg3)"> / 40</span></b><span>TIK controllers that stay stable, across four different unstable systems</span></div>
+    <div class="stat rv"><b><span data-count="420">0</span><span style="font-size:.5em;color:var(--fg3)"> / 420</span></b><span>tilt tests where TIK recovers as well as a controller designed from the exact physics</span></div>
+    <div class="stat rv"><b><span data-count="88">0</span><span style="font-size:.5em;color:var(--fg3)"> %</span></b><span>of swing-ups succeed with only 0.25 milliseconds to plan each step</span></div>
   </div>
-  <p class="fine rv">Simulation only; guarantees are local. Near the target TIK's gain equals LQR on the fitted linearization, a strong baseline by itself; the learned model is for prediction away from the target. On the double cart-pole QP-MPC, TIK reaches 83% and fitted linear MPC 90%.</p>
+  <p class="fine rv">Everything here is simulation, and the guarantees hold near the target, not everywhere. Close to the target, TIK's controller is the same as a standard physics-based design; what the learned model adds is better prediction for large moves. On one harder task (a double cart-pole), TIK succeeds 83% of the time and a physics-based linear controller 90%.</p>
 </div></section>
 
 <section class="sec" id="code"><div class="wrap">
   <p class="eyebrow rv">Code</p>
-  <h2 class="rv">Small and readable</h2>
+  <h2 class="rv">Run it yourself</h2>
+  <p class="sub rv" style="max-width:44ch">A small Python package and three examples. No data to download; everything runs on a laptop CPU.</p>
   <div class="codebox rv"><button class="copy" data-copy="c1">Copy</button>
-<pre id="c1"><span class="c"># pip install -e .</span>
+<pre id="c1"><span class="c"># pip install -e .   then:  python examples/02_cartpole_standard_vs_tik.py</span>
 <span class="k">import</span> tik
 
 plant = tik.CartPole()
@@ -346,7 +355,7 @@ model    = tik.finetune_tik(standard, fit, data)      <span class="c"># A J = J 
 
 ctl = tik.KoopmanLQR.from_model(model)
 <span class="k">print</span>(ctl.latent_radius, ctl.deployed_radius(*plant.linearize()))</pre></div>
-  <div class="btns rv"><a class="btn solid" href="https://github.com/Walleclipse/tik-koopman">github.com/Walleclipse/tik-koopman</a></div>
+  <div class="btns rv"><a class="btn solid" href="https://github.com/Walleclipse/tik-koopman">View on GitHub</a><a class="btn" href="https://github.com/Walleclipse/tik-koopman#examples">Examples</a></div>
 </div></section>
 
 <section class="sec" id="cite" style="background:var(--bg2)"><div class="wrap">
@@ -422,15 +431,15 @@ Runner.prototype.draw=function(accent){var c=this.ctx,W=this.cv.width,H=this.cv.
   c.strokeStyle=accent;c.lineWidth=3;c.beginPath();var T=this.trace,tmax=4,first=true;
   for(var i=0;i<T.length;i++){var xx=tx+Math.min(1,T[i][0]/tmax)*tw,a=Math.max(-1.2,Math.min(1.2,T[i][1])),yy=ty+th2/2-a/1.2*th2/2;if(first){c.moveTo(xx,yy);first=false}else c.lineTo(xx,yy)}c.stroke();
   c.fillStyle='rgba(29,29,31,.6)';c.font='600 21px ui-monospace,Menlo,monospace';c.textAlign='right';c.fillText('t = '+this.t.toFixed(2)+' s',w-34,60);c.textAlign='left';
-  if(this.fell){c.fillStyle='#d93025';c.font='700 46px -apple-system,Helvetica,Arial,sans-serif';c.textAlign='center';c.fillText('falls',w/2,gy-190);c.textAlign='left'}
+  if(this.fell){c.fillStyle='#d93025';c.font='700 46px -apple-system,Helvetica,Arial,sans-serif';c.textAlign='center';c.fillText('falls over',w/2,gy-190);c.textAlign='left'}
 };
 function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
 var A=new Runner($('cv-std'),DEMO.standard.gain),B=new Runner($('cv-tik'),DEMO.tik.gain);
-$('nom-std').textContent='ρ = '+rho(DEMO.standard.latent).toFixed(3);$('nom-tik').textContent='ρ = '+rho(DEMO.tik.latent).toFixed(3);
-$('pl-std').textContent='ρ = '+rho(DEMO.standard.plant).toFixed(1);$('pl-tik').textContent='ρ = '+rho(DEMO.tik.plant).toFixed(3);
+
+$('pl-std').textContent='(ρ = '+rho(DEMO.standard.plant).toFixed(1)+')';$('pl-tik').textContent='(ρ = '+rho(DEMO.tik.plant).toFixed(2)+')';
 var playing=false,acc=0,last=0,visible=true,SPEED=0.5,TMAX=6;
-function setStatus(){$('st-std').className='chip '+(A.fell?'bad':'idle');$('st-std').innerHTML='<i></i>'+(A.fell?'fell':'running');
-  var done=B.t>=TMAX-1e-6;$('st-tik').className='chip '+(done?'ok':'idle');$('st-tik').innerHTML='<i></i>'+(done?'recovered':'running')}
+function setStatus(){$('st-std').className='chip '+(A.fell?'bad':'idle');$('st-std').innerHTML='<i></i>'+(A.fell?'fell over':'running');
+  var done=B.t>=TMAX-1e-6;$('st-tik').className='chip '+(done?'ok':'idle');$('st-tik').innerHTML='<i></i>'+(done?'stays up':'running')}
 function render(){A.draw('#e8730c');B.draw('#0a9d8f');setStatus()}
 function start(){var tilt=+$('tilt').value;A.reset(tilt);B.reset(tilt);acc=0;last=0;playing=true;if(reduce){while(B.t<TMAX-1e-6){A.advance();B.advance()}playing=false}render();}
 function loop(ts){if(playing&&visible){if(!last)last=ts;acc+=(ts-last)/1000*SPEED;last=ts;var n=0;while(acc>=P.dt&&n<20){acc-=P.dt;A.advance();B.advance();n++;if(B.t>=TMAX-1e-6){playing=false;break}}render()}else last=ts;requestAnimationFrame(loop)}
@@ -448,7 +457,7 @@ function tg(){var d=+$('delta').value/100,off=tgMode==='std'?d:0;
   var l=$('tg-model-l');l.setAttribute('y',ym+(off<.06?26:0));l.setAttribute('x',566);l.style.fill=tgMode==='std'?'#e8730c':'#0a9d8f';
   var e=$('tg-err');e.setAttribute('y2',ym);e.style.opacity=off<.02?0:1;
   var mm=off*130/180*1.0;$('tg-mm').textContent=mm.toFixed(2);
-  $('tg-cert').textContent=tgMode==='tik'?'transfers':(off<.02?'transfers':'not guaranteed');$('tg-cert').style.color=(tgMode==='tik'||off<.02)?'var(--tik)':'var(--std)';
+  $('tg-cert').textContent=tgMode==='tik'?'yes':(off<.02?'yes':'no guarantee');$('tg-cert').style.color=(tgMode==='tik'||off<.02)?'var(--tik)':'var(--std)';
   $('tg-std').setAttribute('aria-pressed',tgMode==='std');$('tg-tik').setAttribute('aria-pressed',tgMode==='tik')}
 $('tg-std').onclick=function(){tgMode='std';tg()};$('tg-tik').onclick=function(){tgMode='tik';tg()};$('delta').addEventListener('input',tg);tg();
 
@@ -460,7 +469,7 @@ var dots=[],rings=[];
 (function buildSp(){
   [0.5,1,1.4].forEach(function(r){el('circle',{cx:0,cy:0,r:r*S*Z,fill:'none',stroke:r===1?'rgba(29,29,31,.55)':'rgba(0,0,0,.08)','stroke-width':r===1?1.8:1,'stroke-dasharray':r===1?'':'3 5'},spSvg)});
   el('line',{x1:-170,x2:170,y1:0,y2:0,stroke:'rgba(0,0,0,.1)'},spSvg);el('line',{y1:-170,y2:170,x1:0,x2:0,stroke:'rgba(0,0,0,.1)'},spSvg);
-  var t=el('text',{x:8,y:-S*Z-8,fill:'rgba(29,29,31,.6)'},spSvg);t.textContent='unit circle';t.style.fill='rgba(29,29,31,.6)';
+  var t=el('text',{x:8,y:-S*Z-8,fill:'rgba(29,29,31,.6)'},spSvg);t.textContent='stable inside this circle';t.style.fill='rgba(29,29,31,.6)';
   for(var i=0;i<32;i++)dots.push(el('circle',{cx:0,cy:0,r:3.6,fill:'#0a9d8f','fill-opacity':.85},spSvg));
   for(var j=0;j<4;j++)rings.push(el('circle',{cx:0,cy:0,r:7,fill:'none',stroke:'#e8730c','stroke-width':2.6},spSvg));
   var arrow=el('text',{id:'sp-out','text-anchor':'end',x:176,y:-34},spSvg);arrow.style.fill='#e8730c';arrow.style.fontSize='13px';arrow.style.fontWeight='600';
@@ -470,8 +479,8 @@ function sp(){var D=DEMO[spMode==='std'?'standard':'tik'];
   D.latent.forEach(function(z,i){var p=mapPt(z);dots[i].style.transform='translate('+p[0]+'px,'+p[1]+'px)'});
   D.plant.forEach(function(z,i){var p=mapPt(z);rings[i].style.transform='translate('+p[0]+'px,'+p[1]+'px)'});
   var rl=rho(D.latent),rp=rho(D.plant);$('sp-rl').textContent=rl.toFixed(3);$('sp-rp').textContent=rp.toFixed(rp>2?1:3);$('sp-rp').style.color=rp>1?'var(--bad)':'var(--tik)';
-  var out=$('sp-out');out.textContent=rp>CLIP?'plant: '+rp.toFixed(1)+' →':'';
-  $('sp-note').textContent=spMode==='std'?'One plant eigenvalue is far outside the unit circle, although every latent eigenvalue is inside.':'The plant eigenvalues coincide with latent eigenvalues, so ρ(plant) ≤ ρ(latent) < 1.';
+  var out=$('sp-out');out.textContent=rp>CLIP?'real system: '+rp.toFixed(1)+' →':'';
+  $('sp-note').textContent=spMode==='std'?'The model says stable: all of its dots are inside the circle. But the real system has a number far outside it, so the cart-pole falls.':'The real system\'s numbers are among the model\'s numbers, so they are inside the circle too. The model\'s answer carries over.';
   $('sp-std').setAttribute('aria-pressed',spMode==='std');$('sp-tik').setAttribute('aria-pressed',spMode==='tik')}
 $('sp-std').onclick=function(){spMode='std';sp()};$('sp-tik').onclick=function(){spMode='tik';sp()};sp();
 
@@ -487,7 +496,7 @@ function sim(m,x0){var A=m.A,B=m.B,K=m.K,x=x0,z=[x0,x0*x0],pl=[x],lt=[z[0]],
 function drawScalar(){var x0=Math.pow(10,+$('x0').value),r=sim(M[cur],x0),W=760,H=300,L=56,Rr=16,T=14,Bm=40,pw=W-L-Rr,ph=H-T-Bm,lo=Math.log10(FLOOR),hi=Math.log10(3);
   var X=function(i){return L+pw*i/N},Y=function(v){var a=Math.abs(v);if(!(a>FLOOR))a=FLOOR;if(a>3)a=3;return T+ph*(1-(Math.log10(a)-lo)/(hi-lo))};
   ch.innerHTML='';for(var p=-9;p<=0;p+=3){var y=Y(Math.pow(10,p));el('line',{x1:L,x2:W-Rr,y1:y,y2:y,stroke:'rgba(0,0,0,.07)'},ch);var t=el('text',{x:L-10,y:y+4,'text-anchor':'end'},ch);t.textContent='1e'+p}
-  for(var s=0;s<=N;s+=10){var tt=el('text',{x:X(s),y:H-16,'text-anchor':'middle'},ch);tt.textContent=s}var tl=el('text',{x:L+pw/2,y:H-1,'text-anchor':'middle'},ch);tl.textContent='step';
+  for(var s=0;s<=N;s+=10){var tt=el('text',{x:X(s),y:H-16,'text-anchor':'middle'},ch);tt.textContent=s}var tl=el('text',{x:L+pw/2,y:H-1,'text-anchor':'middle'},ch);tl.textContent='time steps';
   function path(a,color,dash){var d='';for(var i=0;i<a.length;i++){if(a[i]===Infinity)break;d+=(d?'L':'M')+X(i).toFixed(1)+' '+Y(a[i]).toFixed(1);if(Math.abs(a[i])>2)break}
     var pe=el('path',{d:d,fill:'none',stroke:color,'stroke-width':dash?2.2:3,'stroke-dasharray':dash?'7 6':'none','stroke-linecap':'round'},ch)}
   path(r.lt,'#0a9d8f',true);path(r.pl,'#e8730c',false);

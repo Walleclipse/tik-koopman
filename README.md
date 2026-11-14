@@ -8,15 +8,18 @@
 Reference implementation of **TIK: Making Koopman Control Guarantees Hold on Robots**
 (Abulikemu Abuduweili and Changliu Liu, Robotics Institute, Carnegie Mellon University).
 
-A Koopman controller is usually certified on its learned linear model. A robot runs the nonlinear plant and re-encodes the measured
-state at every step, so the loop that was certified is not the loop that runs. TIK enforces first-order matching between the learned
-model and a local linearization of the plant, on the tangent space of the embedding at the target. When that matching holds, the
-nominal certificate carries over to the plant.
+**The problem.** A learned controller is usually checked for stability on a learned model of the robot. The real robot does not run on
+the model: at every step it measures its state and converts it into the model's terms, which adds a term the check never includes. So a
+controller can pass the check and still fall.
+
+**The fix.** TIK makes the learned model agree with the real system's first-order behavior near the target (we call this *tangent
+invariance*). When that holds, the safety check on the model carries over to the real system. TIK builds the agreement into the model
+by construction, from a local fit to logged data, and adds a data-driven test for stability and a region where the controller stays safe.
 
 <p align="center"><img src="docs/assets/cartpole.gif" width="720" alt="Cart-pole from a 20 degree tilt: the Standard Koopman controller falls, the TIK controller recovers"></p>
 
-*Same cart-pole, same 20° tilt, shown at half speed. Both controllers pass the nominal stability test on their latent model
-(ρ = 0.988 and 0.984). On the plant, Standard Koopman has ρ(F) = 10.5 and falls, and TIK has ρ(F) = 0.984 and recovers.
+*Same cart-pole, same 20° tilt, shown at half speed. Both controllers pass the safety check on their learned model
+(ρ = 0.988 and 0.984). On the real system, Standard Koopman has ρ(F) = 10.5 and falls, and TIK has ρ(F) = 0.984 and recovers (ρ below 1 is stable).
 Rendered by [`scripts/make_gif.py`](scripts/make_gif.py).*
 
 ## What is in this repository

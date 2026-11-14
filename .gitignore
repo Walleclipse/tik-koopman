@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+# no data, checkpoints, logs or results are tracked
+data/
+datasets/
+results/
+logs/
+outputs/
+checkpoints/
+*.pt
+*.pth
+*.npz
+*.ckpt

@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 
-Reference implementation of **TIK: Making Koopman Control Guarantees Hold on Robots**
+Reference implementation of **Making Koopman Control Guarantees Hold on Robots**
 (Abulikemu Abuduweili and Changliu Liu, Robotics Institute, Carnegie Mellon University).
 
 **The problem.** A learned controller is usually checked for stability on a learned model of the robot. The real robot does not run on

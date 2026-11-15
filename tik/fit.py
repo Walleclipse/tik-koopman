@@ -33,7 +33,7 @@ def fit_local_linearization(x: np.ndarray, u: np.ndarray, x_next: np.ndarray, ra
     d = np.linalg.norm(p, axis=1)
     keep = d <= (radius if radius is not None else np.quantile(d, 0.2))
     p, y, d = p[keep], x_next[keep], d[keep]
-    bw = bandwidth if bandwidth is not None else float(np.median(d))
+    bw = bandwidth if bandwidth is not None else max(float(np.median(d)), 1e-12)
     w = np.exp(-((d / bw) ** 2))
     q = np.hstack([p, np.ones((len(p), 1))])
     Sigma = (q * w[:, None]).T @ q

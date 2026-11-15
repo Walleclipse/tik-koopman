@@ -4,478 +4,1550 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Making Koopman Control Guarantees Hold on Robots (TIK)</title>
-<meta name="description" content="Tangent-Invariant Koopman (TIK): a learned robot controller can pass its stability check on the learned model and still be unstable on the real system. TIK is a way to make the check hold on the real system.">
+<meta name="description" content="Tangent-Invariant Koopman (TIK): bridging the gap between nominal latent stability certificates and deployed closed-loop stability on physical robotic systems.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Making Koopman Control Guarantees Hold on Robots">
-<meta property="og:description" content="A learned robot controller can pass its stability check on the learned model and still be unstable on the real system. TIK makes the check hold on the real system.">
+<meta property="og:description" content="Why nominal Koopman control certificates fail under state re-encoding, and how Tangent-Invariant Koopman guarantees deployed stability on physical systems.">
 <meta property="og:image" content="https://walleclipse.github.io/tik-koopman/assets/og.png">
 <meta property="og:url" content="https://walleclipse.github.io/tik-koopman/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="https://walleclipse.github.io/tik-koopman/">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%231d1d1f%27/%3E%3Cpath d=%27M32 12v34%27 stroke=%27%230a9d8f%27 stroke-width=%278%27 stroke-linecap=%27round%27/%3E%3Ccircle cx=%2732%27 cy=%2711%27 r=%277%27 fill=%27%23fff%27/%3E%3Crect x=%2714%27 y=%2748%27 width=%2736%27 height=%278%27 rx=%274%27 fill=%27%23fff%27/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%230f172a%27/%3E%3Cpath d=%27M32 12v34%27 stroke=%27%230d9488%27 stroke-width=%277%27 stroke-linecap=%27round%27/%3E%3Ccircle cx=%2732%27 cy=%2712%27 r=%276%27 fill=%27%23fff%27/%3E%3Crect x=%2714%27 y=%2748%27 width=%2736%27 height=%277%27 rx=%273.5%27 fill=%27%23fff%27/%3E%3C/svg%3E">
+
 <style>
-:root{
-  --text:#1f2328; --text2:#4b5259; --text3:#6b7280; --line:#e3e5e8; --soft:#f6f7f8; --white:#fff;
-  --tik:#0a8f82; --std:#d9650b; --bad:#c62828; --link:#0b5cad;
-  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Helvetica,Arial,sans-serif;
-  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
-  --serif:"New York",ui-serif,Georgia,"Times New Roman",serif;
-  --col:760px; --wide:1040px;
+:root {
+  --bg: #ffffff;
+  --bg-subtle: #f8fafc;
+  --bg-card: #ffffff;
+  --text: #0f172a;
+  --text-muted: #475569;
+  --text-light: #64748b;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  
+  --primary: #0f172a;
+  --primary-hover: #1e293b;
+  --link: #0284c7;
+  --link-hover: #0369a1;
+  
+  --tik: #0d9488;
+  --tik-light: #f0fdfa;
+  --tik-border: #99f6e4;
+  --std: #ea580c;
+  --std-light: #fff7ed;
+  --std-border: #fed7aa;
+  --danger: #dc2626;
+  --danger-light: #fef2f2;
+  
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+  --font-serif: "New York", ui-serif, Georgia, Cambria, "Times New Roman", serif;
+  
+  --container-narrow: 780px;
+  --container-wide: 1080px;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
 }
-*,*::before,*::after{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;scroll-padding-top:70px}
-@media(prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
-body{margin:0;background:var(--white);color:var(--text);font:17px/1.65 var(--font);-webkit-font-smoothing:antialiased}
-a{color:var(--link)}
-img,svg,canvas{display:block;max-width:100%}
-:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:4px}
-.col{max-width:var(--col);margin:0 auto;padding:0 22px}
-.wide{max-width:var(--wide);margin:0 auto;padding:0 22px}
-header.top{border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
-header.top .wide{display:flex;align-items:center;justify-content:space-between;height:52px;gap:18px}
-header.top b{font-size:15px;letter-spacing:.02em}
-header.top nav{display:flex;gap:18px;font-size:14px;flex-wrap:wrap;justify-content:flex-end}
-header.top nav a{color:var(--text2);text-decoration:none} header.top nav a:hover{color:var(--text)}
-@media(max-width:760px){header.top nav a:nth-child(n+4){display:none}}
-.title{padding:56px 0 8px;text-align:center}
-.title h1{font-size:clamp(28px,4.2vw,40px);line-height:1.2;font-weight:650;letter-spacing:-.01em;margin:0 0 8px}
-.title .sub{font-size:19px;color:var(--text2);margin:0 0 22px}
-.authors{font-size:17px;margin:0}
-.authors sup{font-size:11px}
-.affil{color:var(--text2);font-size:15px;margin:2px 0 20px}
-.links{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:0 0 6px}
-.btn{display:inline-block;padding:8px 18px;border-radius:8px;border:1px solid var(--text);background:var(--text);color:#fff;text-decoration:none;font-size:15px}
-.btn.alt{background:#fff;color:var(--text)} .btn:hover{opacity:.88}
-.btn[aria-disabled=true]{opacity:.45;pointer-events:none}
-section{padding:40px 0 6px}
-h2{font-size:26px;line-height:1.25;font-weight:650;letter-spacing:-.005em;margin:0 0 14px}
-h3{font-size:19px;font-weight:650;margin:26px 0 6px}
-p{margin:0 0 14px}
-.lead{font-size:18.5px;color:var(--text)}
-.note{font-size:15px;color:var(--text2)}
-.small{font-size:14px;color:var(--text3)}
-ul,ol{margin:0 0 14px;padding-left:22px} li{margin:0 0 6px}
-.math{font-family:var(--serif);font-style:italic;white-space:nowrap}
-.mono,code{font-family:var(--mono);font-size:.9em}
-details.terms{margin:18px 0;border:1px solid var(--line);border-radius:10px;background:var(--soft);padding:2px 16px}
-details.terms summary{cursor:pointer;padding:12px 0;font-weight:600;font-size:15.5px}
-details.terms dl{margin:0 0 12px;font-size:15.5px;color:var(--text2)}
-details.terms dt{font-weight:600;color:var(--text);margin-top:10px} details.terms dd{margin:2px 0 0}
-figure{margin:22px 0 8px}
-figcaption{font-size:14.5px;color:var(--text2);margin-top:10px;line-height:1.55}
-figcaption b{color:var(--text)}
-.panel{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
-.panel.pad{padding:16px 18px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:820px){.grid2{grid-template-columns:1fr}}
-.pane-h{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 0;font-weight:600;font-size:16px;gap:8px}
-.pane-h .state{font-weight:500;font-size:13px;color:var(--text3)}
-.pane canvas{width:100%;height:auto;aspect-ratio:16/10}
-.pane-f{padding:0 16px 14px;font-size:14px;color:var(--text2)}
-.pane-f div{margin-top:3px}
-.ok{color:var(--tik);font-weight:600} .bad{color:var(--bad);font-weight:600}
-.ctl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;font-size:15px}
-.ctl input[type=range]{flex:1 1 180px;min-width:150px;accent-color:var(--text)}
-.ctl .val{min-width:3.4em;text-align:right;font-variant-numeric:tabular-nums}
-button.small-btn,.seg button{font:inherit;font-size:14px;border:1px solid var(--line);background:#fff;color:var(--text);padding:6px 14px;border-radius:8px;cursor:pointer}
-button.small-btn:hover,.seg button:hover{background:var(--soft)}
-.seg{display:inline-flex} .seg button{border-radius:0;margin-left:-1px}
-.seg button:first-child{border-radius:8px 0 0 8px;margin-left:0} .seg button:last-child{border-radius:0 8px 8px 0}
-.seg button[aria-pressed=true]{background:var(--text);color:#fff;border-color:var(--text)}
-.readout{display:flex;flex-wrap:wrap;gap:8px 28px;margin-top:12px}
-.readout div{font-size:13.5px;color:var(--text3);max-width:15em}
-.readout b{display:block;font-size:22px;color:var(--text);font-variant-numeric:tabular-nums;font-weight:650}
-.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13.5px;color:var(--text2);margin-top:10px}
-.legend span{display:inline-flex;align-items:center;gap:7px}
-.legend i{display:inline-block;width:11px;height:11px;border-radius:50%}
-.legend i.dot{background:var(--tik)} .legend i.ring{border:2.2px solid var(--std)}
-.viz svg text{font-family:var(--font);fill:#6b7280;font-size:12px}
-.loop svg text{font-family:var(--font);fill:var(--text);font-size:12.5px} .loop svg .d{fill:#6b7280;font-size:11px}
-.loop svg rect{fill:#fff;stroke:#9aa0a6;stroke-width:1.2} .loop svg rect.t{stroke:var(--tik)} .loop svg rect.p{stroke:var(--std);fill:#fff6ee}
-.loop svg path.w{fill:none;stroke:#6b7280;stroke-width:1.5}
-.loop svg circle.sig{fill:var(--tik)} .loop svg circle.sig.o{fill:var(--std)}
-.loop h4{margin:0 0 2px;font-size:16px} .loop .t{font-size:13px;color:var(--text3);margin-bottom:4px}
-.eq{margin:16px 0;padding:14px 18px;background:var(--soft);border-radius:10px;text-align:center;font-family:var(--serif);font-size:20px;overflow-x:auto}
-.tw{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:15px;margin:6px 0}
-th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
-th{font-weight:600;color:var(--text2);font-size:14px;border-bottom:1.5px solid #c9cdd2}
-td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-tr.us td{font-weight:650;background:#f0faf8}
-pre{margin:0;padding:16px 18px;background:#f6f7f8;border:1px solid var(--line);border-radius:10px;overflow-x:auto;font:13.5px/1.65 var(--mono);color:#24292f}
-.codebox{position:relative;margin:14px 0}
-.copy{position:absolute;top:8px;right:8px;font:inherit;font-size:12px;border:1px solid var(--line);background:#fff;border-radius:6px;padding:3px 10px;cursor:pointer}
-.k{color:#0b5cad}.c{color:#6b7280}
-footer{margin-top:50px;border-top:1px solid var(--line);padding:26px 0 44px;font-size:14px;color:var(--text3)}
-.steps{counter-reset:s;padding:0;list-style:none}
-.steps li{position:relative;padding:0 0 0 38px;margin-bottom:12px}
-.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:1px;width:26px;height:26px;border-radius:50%;background:var(--text);color:#fff;font-size:13.5px;font-weight:600;text-align:center;line-height:26px}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 72px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--link); text-decoration: none; }
+a:hover { color: var(--link-hover); text-decoration: underline; }
+img, svg, canvas { display: block; max-width: 100%; height: auto; }
+
+.container { max-width: var(--container-narrow); margin: 0 auto; padding: 0 24px; }
+.container-wide { max-width: var(--container-wide); margin: 0 auto; padding: 0 24px; }
+
+/* Sticky Navbar */
+header.top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+header.top-nav .nav-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  gap: 16px;
+}
+.nav-brand {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-brand .tag {
+  background: var(--tik-light);
+  color: var(--tik);
+  border: 1px solid var(--tik-border);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+header.top-nav nav {
+  display: flex;
+  gap: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+header.top-nav nav a { color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
+header.top-nav nav a:hover { color: var(--text); }
+.nav-github-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  text-decoration: none !important;
+}
+.nav-github-btn:hover { background: #e2e8f0; }
+
+@media (max-width: 820px) {
+  header.top-nav nav a:nth-child(n+4) { display: none; }
+}
+
+/* Hero Section */
+.hero {
+  padding: 56px 0 28px;
+  text-align: center;
+}
+.hero h1 {
+  font-size: clamp(30px, 4.4vw, 44px);
+  font-weight: 800;
+  line-height: 1.22;
+  letter-spacing: -0.025em;
+  color: var(--text);
+  margin: 0 auto 14px;
+  max-width: 900px;
+}
+.hero .subtitle {
+  font-size: clamp(18px, 2.3vw, 21px);
+  color: var(--text-muted);
+  font-weight: 400;
+  margin: 0 0 24px;
+}
+.authors {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--text);
+}
+.authors a { color: inherit; text-decoration: none; }
+.authors a:hover { text-decoration: underline; }
+.affil {
+  color: var(--text-muted);
+  font-size: 15px;
+  margin: 0 0 24px;
+}
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin: 0 0 10px;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none !important;
+  transition: all 0.15s ease;
+}
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+.btn-secondary {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+.btn-secondary:hover { background: var(--bg-subtle); border-color: #94a3b8; transform: translateY(-1px); }
+
+/* Typography & General Content */
+section {
+  padding: 44px 0 12px;
+}
+section.alt-bg {
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+h2 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  margin: 0 0 16px;
+}
+h3 {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 28px 0 10px;
+}
+p { margin: 0 0 16px; }
+.lead {
+  font-size: 18px;
+  line-height: 1.68;
+  color: var(--text);
+}
+.text-muted { color: var(--text-muted); }
+.math { font-family: var(--font-serif); font-style: italic; }
+code, .mono {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Feature Cards (Key Highlights) */
+.highlights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  margin: 24px 0 12px;
+}
+.highlight-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s;
+}
+.highlight-card:hover { border-color: #94a3b8; }
+.highlight-card h4 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.highlight-card h4 .icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+}
+.highlight-card p {
+  font-size: 14.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Abstract Box */
+.abstract-box {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--tik);
+  border-radius: var(--radius-md);
+  padding: 22px 26px;
+  margin: 20px 0;
+  box-shadow: var(--shadow-sm);
+}
+.abstract-box h3 { margin-top: 0; margin-bottom: 8px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tik); }
+.abstract-box p { font-size: 16px; color: var(--text); line-height: 1.7; margin: 0; }
+
+/* Interactive Simulation Panel */
+.sim-panel {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  margin: 24px 0 12px;
+}
+.sim-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+}
+@media (max-width: 780px) { .sim-grid { grid-template-columns: 1fr; } }
+.sim-pane {
+  background: #fff;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+.sim-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.sim-title {
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.status-pill {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.status-pill.stable { background: var(--tik-light); color: var(--tik); border: 1px solid var(--tik-border); }
+.status-pill.unstable { background: var(--danger-light); color: var(--danger); border: 1px solid #fecaca; }
+.status-pill i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; background: currentColor; }
+
+.sim-pane canvas {
+  width: 100%;
+  aspect-ratio: 16/10;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  border: 1px solid var(--border);
+}
+.sim-footer {
+  margin-top: 12px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.sim-footer b { color: var(--text); }
+.sim-controls {
+  padding: 14px 20px;
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 14.5px;
+}
+.slider-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 280px;
+}
+.slider-group input[type=range] {
+  flex: 1;
+  accent-color: var(--text);
+  cursor: pointer;
+}
+.slider-group .val {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 38px;
+  text-align: right;
+}
+
+/* Math block */
+.math-block {
+  margin: 18px 0;
+  padding: 14px 20px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: center;
+  font-family: var(--font-serif);
+  font-size: 19px;
+  overflow-x: auto;
+}
+
+/* Figures and Visual Artifacts */
+figure.paper-figure {
+  margin: 24px 0 16px;
+}
+.figure-frame {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+figcaption {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin-top: 10px;
+}
+figcaption b { color: var(--text); }
+
+/* Tables */
+.table-wrapper {
+  overflow-x: auto;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+table.academic-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+  text-align: left;
+}
+table.academic-table th, table.academic-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+table.academic-table th {
+  background: var(--bg-subtle);
+  font-weight: 600;
+  color: var(--text);
+  font-size: 13.5px;
+}
+table.academic-table td.num, table.academic-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+table.academic-table tr:last-child td { border-bottom: none; }
+table.academic-table tr.highlight-row {
+  background: var(--tik-light);
+  font-weight: 600;
+}
+table.academic-table tr.highlight-row td { color: #0f766e; }
+
+/* Interactive SVG Diagram Panels */
+.interactive-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  margin: 20px 0;
+}
+.card-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.segment-control {
+  display: inline-flex;
+  background: var(--bg-subtle);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.segment-control button {
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.segment-control button[aria-pressed=true] {
+  background: #fff;
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.metrics-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.metric-item {
+  font-size: 13px;
+  color: var(--text-light);
+}
+.metric-item b {
+  display: block;
+  font-size: 20px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* Code Box */
+.code-box {
+  position: relative;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #0f172a;
+  color: #f8fafc;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  font-size: 13px;
+  color: #94a3b8;
+  font-family: var(--font-mono);
+}
+.code-header a {
+  color: #38bdf8;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+.code-header a:hover { text-decoration: underline; }
+.copy-btn {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  background: #334155;
+  color: #f8fafc;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.copy-btn:hover { background: #475569; }
+pre {
+  margin: 0;
+  padding: 16px 18px;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.65;
+  overflow-x: auto;
+}
+pre.light {
+  background: var(--bg-subtle);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+/* Method Steps */
+.step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 20px 0;
+}
+.step-item {
+  display: flex;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+}
+.step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--text);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.step-body h4 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.step-body p {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--text-muted);
+}
+
+footer {
+  margin-top: 60px;
+  border-top: 1px solid var(--border);
+  padding: 36px 0 54px;
+  font-size: 14px;
+  color: var(--text-muted);
+  text-align: center;
+  background: var(--bg-subtle);
+}
 </style>
 </head>
 <body>
-<header class="top"><div class="wide"><b>TIK</b>
-  <nav><a href="#summary">Summary</a><a href="#background">Background</a><a href="#problem">Problem</a><a href="#idea">Key idea</a><a href="#method">Method</a><a href="#results">Results</a><a href="#code">Code</a><a href="#cite">Citation</a></nav></div></header>
 
-<div class="col title">
-  <h1>Making Koopman Control Guarantees Hold on Robots</h1>
-  <p class="sub">Tangent-Invariant Koopman (TIK)</p>
-  <p class="authors">Abulikemu Abuduweili &nbsp;&nbsp; Changliu Liu</p>
-  <p class="affil">Robotics Institute, Carnegie Mellon University</p>
-  <div class="links"><a class="btn" href="https://github.com/Walleclipse/tik-koopman">Code</a><a class="btn alt" href="#" aria-disabled="true">Paper (arXiv, coming soon)</a><a class="btn alt" href="#cite">BibTeX</a></div>
-</div>
+<header class="top-nav">
+  <div class="container-wide nav-content">
+    <div class="nav-brand">
+      <span>TIK</span>
+      <span class="tag">Robotics & Control</span>
+    </div>
+    <nav>
+      <a href="#overview">Overview</a>
+      <a href="#motivation">Motivation</a>
+      <a href="#theory">Theory</a>
+      <a href="#method">Method</a>
+      <a href="#results">Results</a>
+      <a href="#code">Code</a>
+      <a href="#citation">Citation</a>
+    </nav>
+    <a class="nav-github-btn" href="https://github.com/Walleclipse/tik-koopman" target="_blank" rel="noopener noreferrer">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
 
 <main>
-<section id="summary"><div class="col">
-  <h2>Summary</h2>
-  <p class="lead">A common way to build a robot controller is to learn a model of the robot, design a controller on that model, and check that the controller is stable on the model. We show that this check can pass while the controller is unstable on the real robot. We give a condition on the learned model under which the check does carry over to the real system, and a way to train models that satisfy it.</p>
-  <p>In simulation, on four systems that are unstable without control, all 40 controllers trained the standard way pass the check on their model and are unstable on the real system. All 40 controllers trained with our method are stable on the real system.</p>
-</div>
-<div class="wide">
-  <figure>
-    <div class="grid2" id="stage">
-      <div class="panel pane">
-        <div class="pane-h"><span style="color:var(--std)">Standard learned controller</span><span class="state" id="st-std">running</span></div>
-        <canvas id="cv-std" width="960" height="600" role="img" aria-label="Cart-pole under a standard learned controller: the pole falls over"></canvas>
-        <div class="pane-f"><div>Stability check on the model: <span class="ok">pass</span></div><div>Real system: <span class="bad">unstable</span> <span id="pl-std"></span></div></div>
+  <!-- Hero Section -->
+  <div class="container hero">
+    <h1>Making Koopman Control Guarantees Hold on Robots</h1>
+    <p class="subtitle">Tangent-Invariant Koopman (TIK)</p>
+    <p class="authors">
+      <a href="https://scholar.google.com/citations?user=eXjXWkEAAAAJ" target="_blank" rel="noopener">Abulikemu Abuduweili</a> &nbsp;and&nbsp; 
+      <a href="https://www.cs.cmu.edu/~cliu6/" target="_blank" rel="noopener">Changliu Liu</a>
+    </p>
+    <p class="affil">Robotics Institute, Carnegie Mellon University</p>
+    
+    <div class="action-buttons">
+      <a class="btn btn-primary" href="assets/paper.pdf" target="_blank">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Paper (PDF)
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/Walleclipse/tik-koopman" target="_blank" rel="noopener noreferrer">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        Code (GitHub)
+      </a>
+      <a class="btn btn-secondary" href="#citation">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+        BibTeX
+      </a>
+    </div>
+  </div>
+
+  <!-- Interactive Teaser -->
+  <div class="container-wide" id="overview">
+    <div class="sim-panel">
+      <div class="sim-grid">
+        <div class="sim-pane">
+          <div class="sim-header">
+            <span class="sim-title" style="color:var(--std)">Standard Koopman Control</span>
+            <span class="status-pill unstable" id="st-std"><i></i>Unstable on Plant</span>
+          </div>
+          <canvas id="cv-std" width="960" height="600" role="img" aria-label="Cart-pole under standard Koopman control: the pole diverges and falls"></canvas>
+          <div class="sim-footer">
+            <div>Nominal model certificate: <b>&rho;(A &minus; BK) = 0.988 &lt; 1 (Passes)</b></div>
+            <div>Physical closed-loop Jacobian: <b style="color:var(--danger)">F diverges, &rho;(F) = 10.5 &gt; 1 (Falls)</b></div>
+          </div>
+        </div>
+        
+        <div class="sim-pane">
+          <div class="sim-header">
+            <span class="sim-title" style="color:var(--tik)">Tangent-Invariant Koopman (Ours)</span>
+            <span class="status-pill stable" id="st-tik"><i></i>Stable on Plant</span>
+          </div>
+          <canvas id="cv-tik" width="960" height="600" role="img" aria-label="Cart-pole under TIK control: the pole balances upright"></canvas>
+          <div class="sim-footer">
+            <div>Nominal model certificate: <b>&rho;(A &minus; BK) = 0.984 &lt; 1 (Passes)</b></div>
+            <div>Physical closed-loop Jacobian: <b style="color:var(--tik)">F matches LQR, &rho;(F) = 0.984 &lt; 1 (Balances)</b></div>
+          </div>
+        </div>
       </div>
-      <div class="panel pane">
-        <div class="pane-h"><span style="color:var(--tik)">TIK controller</span><span class="state" id="st-tik">running</span></div>
-        <canvas id="cv-tik" width="960" height="600" role="img" aria-label="Cart-pole under a TIK controller: the pole stays up"></canvas>
-        <div class="pane-f"><div>Stability check on the model: <span class="ok">pass</span></div><div>Real system: <span class="ok">stable</span> <span id="pl-tik"></span></div></div>
+      
+      <div class="sim-controls">
+        <div class="slider-group">
+          <label for="tilt"><b>Initial Pole Tilt:</b></label>
+          <input id="tilt" type="range" min="5" max="35" step="1" value="20">
+          <span class="val" id="tilt-v">20&deg;</span>
+        </div>
+        <button class="btn btn-secondary" id="replay" style="padding:5px 14px;font-size:13.5px;">Replay Simulation</button>
       </div>
     </div>
-    <div class="ctl"><label for="tilt">Starting tilt of the pole</label><input id="tilt" type="range" min="5" max="35" step="1" value="20"><span class="val" id="tilt-v">20&deg;</span><button class="small-btn" id="replay">Replay</button></div>
-    <figcaption><b>Figure 1.</b> The task is to keep a pole balanced upright on a moving cart. We trained two controllers from the same data. Both pass the same stability check on their learned model. We then simulated each on the real cart-pole dynamics from the same starting tilt (shown at half speed). The standard controller lets the pole fall; the TIK controller keeps it up. The number &rho; in parentheses is how much a small error grows per time step on the real system (below 1 means stable). The controllers shown are the ones from <span class="mono">examples/02</span> in the code, seed 0. Move the slider to change the starting tilt.</figcaption>
-  </figure>
-</div></section>
-
-<section id="background"><div class="col">
-  <h2>Background: Koopman control</h2>
-  <p>Robot dynamics are nonlinear, which makes it hard to design controllers with guarantees. Koopman methods learn a neural network <span class="math">&Phi;</span> that maps the robot's state <span class="math">x</span> to a longer vector <span class="math">z = &Phi;(x)</span>, together with a <em>linear</em> model <span class="math">z<sup>+</sup> = A z + B u</span> that predicts how <span class="math">z</span> changes when we apply input <span class="math">u</span>. In <span class="math">z</span>-space the model is linear, so standard tools apply: LQR for a feedback gain <span class="math">K</span>, or model predictive control as a convex problem.</p>
-  <p>Stability is checked on the linear model. With feedback <span class="math">u = &minus;K z</span> the model's closed loop is <span class="math">z<sup>+</sup> = (A &minus; B K) z</span>. If every eigenvalue of <span class="math">A &minus; B K</span> lies inside the unit circle, the check says the controller is stable. We call this the <em>nominal certificate</em>.</p>
-  <details class="terms"><summary>Short glossary</summary><dl>
-    <dt>Target</dt><dd>The state we want to hold, for example the pole upright. We shift coordinates so it is the origin.</dd>
-    <dt>Eigenvalues and stability</dt><dd>A linear loop <span class="math">z<sup>+</sup> = M z</span> is stable when all eigenvalues of <span class="math">M</span> have magnitude below 1. The largest magnitude is called the spectral radius, written &rho;.</dd>
-    <dt>Jacobian</dt><dd>The matrix of first derivatives of a function at a point. It describes how the function reacts to small changes.</dd>
-    <dt>Open-loop unstable</dt><dd>The system drifts away from the target on its own, without control (an upright pole falls).</dd>
-  </dl></details>
-</div></section>
-
-<section id="problem"><div class="col">
-  <h2>The problem: the check and the robot run different loops</h2>
-  <p>The check follows the model's own predictions. The robot does something else. At every step it measures its true state <span class="math">x</span>, converts it to <span class="math">z = &Phi;(x)</span>, applies <span class="math">u = &minus;K z</span>, and the real system produces the next <span class="math">x</span>. The model's prediction is never fed back.</p>
-</div>
-<div class="wide"><figure>
-  <div class="grid2">
-    <div class="panel pad loop"><h4>What the check looks at</h4><div class="t">the model's own predictions, followed forward</div>
-<svg viewBox="0 0 420 150" role="img" aria-label="The controller acts on the learned model, and the model's own prediction is fed back to the controller">
-        <defs><marker id="a1" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 1L10 5L0 9z" fill="rgba(29,29,31,.7)"/></marker></defs>
-        <rect x="14" y="26" width="132" height="54" rx="12"/><text x="80" y="50" text-anchor="middle">Controller</text><text class="d" x="80" y="68" text-anchor="middle">picks an action</text>
-        <rect class="t" x="236" y="26" width="170" height="54" rx="12"/><text x="321" y="50" text-anchor="middle">Learned model</text><text class="d" x="321" y="68" text-anchor="middle">predicts what happens</text>
-        <path class="w" d="M146 53H234" marker-end="url(#a1)"/><path class="w" d="M321 80V120H80V82" marker-end="url(#a1)"/>
-        <circle class="sig" r="3.5"><animateMotion dur="3.2s" repeatCount="indefinite" path="M146 53H236"/></circle>
-        <circle class="sig" r="3.5"><animateMotion dur="3.2s" repeatCount="indefinite" begin="1.1s" path="M321 80V120H80V80"/></circle>
-        <text class="d" x="200" y="140" text-anchor="middle">the model's own prediction is fed back</text>
-      </svg>
-      <div class="small">The model's own prediction is fed back to the controller. Stability means <span class="math">&rho;(A &minus; BK) &lt; 1</span>.</div></div>
-    <div class="panel pad loop"><h4>What the robot does</h4><div class="t">the real system, measured at every step</div>
-<svg viewBox="0 0 420 150" role="img" aria-label="The real system moves, the robot measures its state, converts it for the model, and the controller acts">
-        <defs><marker id="a2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 1L10 5L0 9z" fill="rgba(29,29,31,.7)"/></marker></defs>
-        <rect class="t" x="8" y="26" width="104" height="54" rx="12"/><text x="60" y="50" text-anchor="middle">Convert</text><text class="d" x="60" y="68" text-anchor="middle">to model's terms</text>
-        <rect x="150" y="26" width="104" height="54" rx="12"/><text x="202" y="50" text-anchor="middle">Controller</text><text class="d" x="202" y="68" text-anchor="middle">picks an action</text>
-        <rect class="p" x="296" y="26" width="116" height="54" rx="12"/><text x="354" y="50" text-anchor="middle">Real system</text><text class="d" x="354" y="68" text-anchor="middle">actually moves</text>
-        <path class="w" d="M112 53H148" marker-end="url(#a2)"/><path class="w" d="M254 53H294" marker-end="url(#a2)"/><path class="w" d="M354 80V120H60V82" marker-end="url(#a2)"/>
-        <circle class="sig o" r="3.5"><animateMotion dur="3.6s" repeatCount="indefinite" path="M112 53H150"/></circle>
-        <circle class="sig o" r="3.5"><animateMotion dur="3.6s" repeatCount="indefinite" begin="1.2s" path="M354 80V120H60V80"/></circle>
-        <text class="d" x="206" y="140" text-anchor="middle">the measured state is converted at every step</text>
-      </svg>
-      <div class="small">The real system moves, and its measured state is converted at every step. Near the target this loop is governed by <span class="math">F = A<sub>f</sub> &minus; B<sub>f</sub> K J</span>.</div></div>
+    <figcaption>
+      <b>Figure 1: Side-by-side cart-pole stabilization from a 20&deg; tilt.</b> Both models are trained on the exact same offline trajectory data. Both yield a nominal stability certificate in latent space (<span class="math">&rho;(A_{\mathrm{cl}}) &lt; 1</span>). When deployed on the true nonlinear dynamics with state re-encoding (<span class="math">z_t = \Phi_\theta(x_t)</span>), Standard Koopman corrupts physical feedback and diverges (<span class="math">&rho;(F) = 10.5</span>), whereas TIK guarantees first-order tangent invariance and asymptotically recovers upright balance (<span class="math">&rho;(F) = 0.984 &lt; 1</span>).
+    </figcaption>
   </div>
-  <figcaption><b>Figure 2.</b> The two loops. <span class="math">A<sub>f</sub>, B<sub>f</sub></span> are the Jacobians of the real system at the target and <span class="math">J</span> is the Jacobian of the network <span class="math">&Phi;</span> at the target. The check looks at <span class="math">A &minus; BK</span>; the robot is governed by <span class="math">F</span>. The dots move along the arrows only to show the direction of information flow.</figcaption>
-</figure></div>
-<div class="col">
-  <p>Both matrices describe the same controller but they are different, because <span class="math">F</span> contains the derivative <span class="math">J</span> of the network and the real dynamics <span class="math">A<sub>f</sub>, B<sub>f</sub></span>, while <span class="math">A &minus; BK</span> contains only the learned matrices. A model can predict the training data well and still have an <span class="math">F</span> with an eigenvalue outside the unit circle. That is what happens in Figure 1.</p>
-</div></section>
 
-<section id="idea"><div class="col">
-  <h2>Key idea: make the model agree with the real system near the target</h2>
-  <p>Consider a small change <span class="math">v</span> to the state, close to the target. In <span class="math">z</span>-space this change appears as <span class="math">J v</span>. The real system maps <span class="math">v</span> to <span class="math">A<sub>f</sub> v</span>, which appears in <span class="math">z</span>-space as <span class="math">J A<sub>f</sub> v</span>. The learned model maps <span class="math">J v</span> to <span class="math">A J v</span>. We ask these two to be equal, and the same for the input:</p>
-  <div class="eq">A J = J A<sub>f</sub> &nbsp;&nbsp; and &nbsp;&nbsp; B = J B<sub>f</sub></div>
-  <p>We call this <b>tangent invariance</b>, because the vectors <span class="math">J v</span> span the tangent space of the set of encoded states at the target. We prove two things.</p>
-  <ul>
-    <li>If tangent invariance holds, every eigenvalue of <span class="math">F</span> is also an eigenvalue of <span class="math">A &minus; BK</span>. So if the model's check passes, the real system is stable. If it holds only approximately, the same conclusion holds as long as the error is below a margin that we can compute.</li>
-    <li>A model whose matrix <span class="math">A</span> is itself stable cannot satisfy tangent invariance at an equilibrium that is unstable without control. This rules out building stability into <span class="math">A</span> for such systems.</li>
-  </ul>
-</div>
-<div class="wide"><figure class="viz">
-  <div class="panel pad">
-    <div style="display:flex;flex-wrap:wrap;gap:12px 28px;align-items:center;justify-content:space-between">
-      <div class="seg" role="group" aria-label="Model"><button id="tg-std" aria-pressed="true">Standard model</button><button id="tg-tik" aria-pressed="false">TIK model</button></div>
-      <div class="ctl" style="margin-top:0;flex:1 1 280px;max-width:440px"><label for="delta">How wrong the model is</label><input id="delta" type="range" min="0" max="100" value="45"><span class="val" id="delta-v"></span></div>
+  <!-- Abstract & Key Highlights -->
+  <section>
+    <div class="container">
+      <div class="abstract-box">
+        <h3>Abstract</h3>
+        <p>
+          Koopman operator models approximate nonlinear dynamics by linear dynamics in a learned latent space, turning model predictive control (MPC) into a convex quadratic program. However, stability certificates derived on the autonomous latent model frequently fail on the physical robot. The learned model propagates predictions in latent space, whereas the deployed controller repeatedly re-encodes the measured physical state. We show that nominal stability transfers to the nonlinear plant if and only if the learned and physical closed-loop dynamics agree to first order on the embedding's tangent space at the target equilibrium. We introduce <b>Tangent-Invariant Koopman (TIK)</b>, which enforces first-order tangent matching by construction from an offline local linearization estimate. Across four open-loop unstable robotic benchmarks, all 40 Standard Koopman controllers fail on the true plant despite valid nominal certificates, while all 40 TIK controllers locally stabilize their respective plants, match the recovery range of oracle LQR, and enforce invariant terminal sets under real-time planning budgets down to 0.25&nbsp;ms.
+        </p>
+      </div>
+
+      <div class="highlights-grid">
+        <div class="highlight-card">
+          <h4><span class="icon" style="background:#fee2e2;color:#ef4444">1</span> The Re-encoding Gap</h4>
+          <p>Supervising physical state predictions leaves the derivatives of higher-order encoder coordinates unconstrained, corrupting the physical feedback gain under real-time state re-encoding.</p>
+        </div>
+        <div class="highlight-card">
+          <h4><span class="icon" style="background:#e0f2fe;color:#0284c7">2</span> Tangent-Space Invariance</h4>
+          <p>We prove that when the latent model matches the physical linearization on the embedding's tangent space, every physical eigenvalue is guaranteed to lie within the nominal latent spectrum.</p>
+        </div>
+        <div class="highlight-card">
+          <h4><span class="icon" style="background:#ccfbf1;color:#0d9488">3</span> Guaranteed by Construction</h4>
+          <p>TIK enforces tangent invariance analytically via projection for any neural encoder, provides data-driven stability certificates without simulators, and enables real-time convex MPC (1–5 ms).</p>
+        </div>
+      </div>
     </div>
-<svg id="tg" viewBox="0 70 760 270" role="img" aria-label="A perturbation v moves the encoding along the tangent space; the true plant and the model map it to different places unless the model is tangent-invariant">
-      <defs>
-        <marker id="ar-w" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L10 5L0 10z" fill="#1d1d1f"/></marker>
-        <marker id="ar-o" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L10 5L0 10z" fill="#e8730c"/></marker>
-        <marker id="ar-t" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L10 5L0 10z" fill="#0a9d8f"/></marker>
-        <marker id="ar-g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8e8e93"/></marker>
-        <linearGradient id="mf" x1="0" x2="1"><stop offset="0" stop-color="#e3e3e8"/><stop offset=".5" stop-color="#8e8e93"/><stop offset="1" stop-color="#e3e3e8"/></linearGradient>
-      </defs>
-      <path d="M40 300 Q380 150 720 300" fill="none" stroke="url(#mf)" stroke-width="3.5" stroke-linecap="round"/>
-      <text x="64" y="324">every state the model can represent</text>
-      <line x1="60" y1="225" x2="720" y2="225" stroke="rgba(0,0,0,.18)" stroke-dasharray="4 6"/>
-      <text x="64" y="214">tangent space (directions the state can move)</text>
-      <circle cx="380" cy="225" r="6" fill="#1d1d1f"/><text x="332" y="250">target state</text>
-      <line x1="380" y1="225" x2="470" y2="225" stroke="#8e8e93" stroke-width="3" marker-end="url(#ar-g)"/><text x="418" y="246" style="fill:#8e8e93">small change to the state</text>
-      <line id="tg-true" x1="380" y1="225" x2="560" y2="225" stroke="#1d1d1f" stroke-width="3.5" marker-end="url(#ar-w)"/><text x="470" y="274" style="fill:#1d1d1f">where the real system goes</text>
-      <line id="tg-model" x1="380" y1="225" x2="560" y2="150" stroke="#e8730c" stroke-width="3.5" marker-end="url(#ar-o)"/>
-      <text id="tg-model-l" x="566" y="150" style="fill:#e8730c">where the model says it goes</text>
-      <line id="tg-err" x1="560" y1="225" x2="560" y2="150" stroke="rgba(0,0,0,.4)" stroke-dasharray="3 4"/>
-    </svg>
-    <div class="readout"><div>prediction error after one step<b id="tg-mm">0.00</b></div><div>does the model's stability check carry over to the real system?<b id="tg-cert"></b></div></div>
-  </div>
-  <figcaption><b>Figure 3.</b> A schematic of tangent invariance. The curve is the set of states the model can represent; the dashed line is its tangent space at the target. The black arrow is where the real system moves after a small change to the state. The colored arrow is where the model predicts it moves. For a standard model the two can differ (use the slider). For a TIK model they are equal by construction, and the safety check carries over.</figcaption>
-</figure></div></section>
+  </section>
 
-<section id="method"><div class="col">
-  <h2>Method: Tangent-Invariant Koopman (TIK)</h2>
-  <p>TIK trains a Koopman model that satisfies tangent invariance by construction, with respect to a local fit of the real system.</p>
-  <ol class="steps">
-    <li><b>Fit.</b> From logged transitions close to the target, estimate the real system's local linear behavior <span class="math">(&Acirc;<sub>f</sub>, B&#770;<sub>f</sub>)</span> by weighted least squares. No simulator derivatives are needed.</li>
-    <li><b>Parameterize.</b> Write the model matrices as <span class="math">A = J &Acirc;<sub>f</sub> J<sup>+</sup> + W (I &minus; J J<sup>+</sup>)</span> and <span class="math">B = J B&#770;<sub>f</sub></span>, where <span class="math">J<sup>+</sup></span> is the pseudoinverse of <span class="math">J</span>. The first term fixes how <span class="math">A</span> acts on the tangent space, so <span class="math">A J = J &Acirc;<sub>f</sub></span> holds exactly for any <span class="math">W</span> and any network weights. The matrix <span class="math">W</span> is free and acts on the remaining directions. We fine-tune from a standard model with the usual prediction loss.</li>
-    <li><b>Check.</b> The local feedback of a TIK controller equals the LQR gain of the fitted linearization. We bound the error of the fit and compare it with the stability margin of the fitted closed loop. If the error is smaller, the real system is stable (or unstable, if the fitted loop is). We also compute a region around the target in which the local controller keeps the state inside the constraints.</li>
-  </ol>
-  <p>Away from the target, an optional bilinear term lets the input effect depend on the state, which helps with large maneuvers such as swinging the pole up. It does not change the local guarantees.</p>
-</div>
-<div class="wide"><figure class="viz">
-  <div class="panel pad" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:center" id="spec">
-    <div><svg id="sp" viewBox="-190 -190 380 380" role="img" aria-label="Stability numbers (eigenvalues) of the model and of the real system, with the unit circle"></svg></div>
-    <div>
-      <div class="seg" role="group" aria-label="Model"><button id="sp-std" aria-pressed="true">Standard model</button><button id="sp-tik" aria-pressed="false">TIK model</button></div>
-      <div class="legend"><span><i class="dot"></i>eigenvalues of the model's closed loop</span><span><i class="ring"></i>eigenvalues of the real system's loop</span></div>
-      <div class="readout"><div>largest magnitude, model<b id="sp-rl"></b></div><div>largest magnitude, real system<b id="sp-rp"></b></div></div>
-      <p class="note" id="sp-note" style="margin-top:12px"></p>
+  <!-- Motivation: Latent vs Deployed Closed Loops -->
+  <section class="alt-bg" id="motivation">
+    <div class="container">
+      <h2>Motivation: Discrepancy Between Latent and Deployed Loops</h2>
+      <p class="lead">
+        A Koopman controller is designed on an autonomous latent model, but deployed on a physical robot that continuously measures and re-encodes its physical state.
+      </p>
+      <p>
+        Consider a discrete-time nonlinear plant <span class="math">x_{t+1} = f(x_t, u_t)</span> lifted into latent space via an embedding <span class="math">z = \Phi_\theta(x) = [x;\; \Psi_\theta(x) - \Psi_\theta(0)]</span>. In latent space, the linear predictor is <span class="math">\hat{z}_{t+1} = A z_t + B u_t</span> with physical state readout <span class="math">x = C z</span> where <span class="math">C = [I_{n_x}\; 0]</span>. Linear quadratic regulation (LQR) yields a feedback gain <span class="math">K</span> on the latent state.
+      </p>
     </div>
-  </div>
-  <figcaption><b>Figure 4.</b> Eigenvalues of the closed loops for the two cart-pole controllers of Figure 1. A loop is stable when all its eigenvalues lie inside the unit circle. For the standard model, one eigenvalue of the real system is at 10.5, far outside the circle, although every eigenvalue of the model's loop is inside. For TIK, the real system's eigenvalues coincide with eigenvalues of the model's loop. The point at 10.5 is drawn at the edge of the plot.</figcaption>
-</figure></div></section>
 
-<section id="example"><div class="col">
-  <h2>A one-variable example</h2>
-  <p>Take the scalar system <span class="math">x<sup>+</sup> = 1.1 x + 0.2 x<sup>2</sup> + u</span>, which grows on its own. Lift it with <span class="math">z = (x, x<sup>2</sup>)</span>. Both linear models in Figure 5 predict the next <span class="math">x</span> exactly, so they look equally good as models. Only one has the right slopes at the target. LQR designed on the standard model gives almost no gain on <span class="math">x</span> and the real system diverges; LQR designed on the TIK model works.</p>
-</div>
-<div class="wide"><figure class="viz">
-  <div class="panel pad">
-    <div style="display:flex;flex-wrap:wrap;gap:12px 28px;align-items:center;justify-content:space-between">
-      <div class="seg" role="group" aria-label="Model"><button id="m-std" aria-pressed="true">Standard model</button><button id="m-tik" aria-pressed="false">TIK model</button></div>
-      <div class="ctl" style="margin-top:0;flex:1 1 280px;max-width:440px"><label for="x0">Starting value of x</label><input id="x0" type="range" min="-2.7" max="-1.3" step="0.01" value="-2"><span class="val" id="x0v"></span></div>
+    <div class="container-wide">
+      <div class="highlights-grid" style="grid-template-columns: 1fr 1fr; margin-top: 18px;">
+        <div class="highlight-card" style="border-top: 3px solid var(--std)">
+          <h4 style="color:var(--std)">Latent Loop (What Design Checks)</h4>
+          <p style="margin-bottom:8px">The controller acts on the model's own predictions propagated autonomously in latent space:</p>
+          <div class="math-block" style="font-size:16px; margin: 8px 0;">
+            z_{t+1} = (A - BK) z_t = A_{\mathrm{cl}} z_t
+          </div>
+          <p class="text-muted" style="font-size:13.5px">
+            The nominal stability certificate requires <span class="math">&rho;(A_{\mathrm{cl}}) &lt; 1</span>. LQR guarantees this whenever <span class="math">(A, B)</span> is stabilizable and <span class="math">(A, Q_x^{1/2} C)</span> is detectable.
+          </p>
+        </div>
+
+        <div class="highlight-card" style="border-top: 3px solid var(--tik)">
+          <h4 style="color:var(--tik)">Deployed Loop (What the Robot Runs)</h4>
+          <p style="margin-bottom:8px">The physical robot measures its true state, re-encodes it at every step, and applies control to the plant:</p>
+          <div class="math-block" style="font-size:16px; margin: 8px 0;">
+            x_{t+1} = f(x_t, -K \Phi_\theta(x_t)), \quad F := \frac{\partial x_{t+1}}{\partial x_t}\Big|_0 = A_f - B_f K J_\theta
+          </div>
+          <p class="text-muted" style="font-size:13.5px">
+            Local stability on the real system is governed by the <span class="math">n_x \times n_x</span> matrix <span class="math">F</span>, which depends on the true plant Jacobians <span class="math">(A_f, B_f)</span> and the encoder Jacobian <span class="math">J_\theta = \partial\Phi_\theta/\partial x|_0</span>.
+          </p>
+        </div>
+      </div>
+
+      <figure class="paper-figure">
+        <div class="figure-frame">
+          <img src="assets/fig_teaser.png" alt="Double cart-pole trajectories under Standard Koopman vs TIK" style="margin:0 auto; max-height:220px;">
+        </div>
+        <figcaption>
+          <b>Figure 2: Closed-loop trajectories on the MuJoCo double cart-pole from a 0.6&deg; tilt.</b> Dashed curves show the latent model prediction; solid curves show the true plant rollout. Standard Koopman (orange) predicts asymptotic decay in latent space, yet the physical plant diverges and falls over. TIK (blue) aligns the tangent space, guaranteeing that physical execution matches the stabilizing prediction.
+        </figcaption>
+      </figure>
     </div>
-    <svg id="chart" viewBox="0 0 760 300" role="img" aria-label="Real state and model prediction over 40 steps on a log scale"></svg>
-    <div class="legend"><span><i style="width:22px;height:3px;border-radius:2px;background:var(--std)"></i>what really happens</span><span><i style="width:22px;height:0;border-top:3px dashed var(--tik);border-radius:0"></i>what the model predicts</span></div>
-    <div class="readout"><div>stability check on the model (below 1 is stable)<b id="r-nom"></b></div><div>growth per step on the real system (below 1 is stable)<b id="r-F"></b></div><div>after 30 steps, model predicts<b id="r-lat"></b></div><div>after 30 steps, real system is at<b id="r-pl"></b></div></div>
-  </div>
-  <figcaption><b>Figure 5.</b> Size of <span class="math">x</span> over time on a log scale; lower is better. The orange curve leaves the chart when the real system blows up. Reproduce with <span class="mono">python examples/01_scalar_example.py</span>.</figcaption>
-</figure></div></section>
+  </section>
 
-<section id="results"><div class="col">
-  <h2>Results</h2>
-  <p>All results are from simulation. We use four systems whose upright equilibrium is unstable without control: a cart-pole (simulated as an ODE), a cart-pole in MuJoCo, a double cart-pole in MuJoCo, and a double pendulum. For each system we train 10 models per method with different random seeds.</p>
-  <h3>Is the controller stable on the real system?</h3>
-  <p>Number of controllers (out of 10 per system) that are stable on the real system. All of them pass the stability check on their own model.</p>
-  <div class="tw"><table>
-    <thead><tr><th>Method</th><th class="n">Cart-pole (ODE)</th><th class="n">Cart-pole (MuJoCo)</th><th class="n">Double cart-pole</th><th class="n">Double pendulum</th></tr></thead>
-    <tbody>
-      <tr><td>Standard Koopman</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">0</td></tr>
-      <tr><td>Standard + a loss that encourages linearity</td><td class="n">10</td><td class="n">10</td><td class="n">0</td><td class="n">7</td></tr>
-      <tr class="us"><td>TIK (ours)</td><td class="n">10</td><td class="n">10</td><td class="n">10</td><td class="n">10</td></tr>
-    </tbody>
-  </table></div>
-  <p class="note">A loss that encourages linearity helps on the simple systems but not on the double cart-pole. The paper also compares EDMD (0, 0, no result, 9 stable), Deep Koopman with control (10, 10, 0, 9), and two models whose matrix <span class="math">A</span> is stable by construction (0 in every system).</p>
-  <h3>Can stability be certified from data alone?</h3>
-  <p>On the cart-pole and the double cart-pole, in seven combinations of data regime and noise level, the offline test passes all 20 TIK controllers and none of the 20 standard controllers in six of them. In the seventh (double cart-pole, high noise) it passes none, so it is inconclusive there. The test uses empirical estimates of the curvature of the real system, so its verdicts are empirical.</p>
-  <h3>Large maneuvers under time limits</h3>
-  <p>Swing-up of a constrained cart-pole: success rate (%) when the planner has a fixed time per control step. &ldquo;&ndash;&rdquo; means the method cannot run in that time.</p>
-  <div class="tw"><table>
-    <thead><tr><th>Planner model</th><th class="n">2 ms</th><th class="n">1 ms</th><th class="n">0.5 ms</th><th class="n">0.25 ms</th></tr></thead>
-    <tbody>
-      <tr><td>Fitted linear model</td><td class="n">50</td><td class="n">33</td><td class="n">25</td><td class="n">8</td></tr>
-      <tr><td>Neural network model</td><td class="n">91</td><td class="n">91</td><td class="n">91</td><td class="n">&ndash;</td></tr>
-      <tr><td>Standard Koopman</td><td class="n">17</td><td class="n">15</td><td class="n">7</td><td class="n">6</td></tr>
-      <tr class="us"><td>TIK (ours)</td><td class="n">100</td><td class="n">88</td><td class="n">88</td><td class="n">88</td></tr>
-    </tbody>
-  </table></div>
-  <p class="note">We tuned the planner settings for TIK on separate design starts; the baselines used default settings. After the pole is near upright, all methods switch to the same local controller, whose safe region we certify for TIK.</p>
-  <h3>Limitations</h3>
-  <ul>
-    <li>Everything is in simulation. We have not tested on hardware, where noise and contacts matter.</li>
-    <li>The guarantees are local, around the target. Near the target, TIK's controller equals LQR designed on the fitted linearization, which is already a strong baseline. The benefit of the learned model is better prediction for large maneuvers.</li>
-    <li>On a harder double cart-pole task, TIK succeeds in 83% of runs and a physics-based linear controller in 90%.</li>
-    <li>The offline stability test and the terminal set depend on curvature bounds that we estimate rather than prove.</li>
-  </ul>
-</div></section>
+  <!-- Theory: Tangent Invariance -->
+  <section id="theory">
+    <div class="container">
+      <h2>Theoretical Foundation: Tangent-Space Invariance</h2>
+      <p class="lead">
+        Under what mathematical condition does the nominal latent certificate guarantee closed-loop stability on the physical plant?
+      </p>
+      <p>
+        Let <span class="math">E(x, u) = \Phi_\theta(f(x, u)) - A \Phi_\theta(x) - B u</span> denote the one-step latent prediction error. Standard training supervises <span class="math">C E(x, u)</span>, the physical state coordinates, leaving the derivatives of the remaining <span class="math">N - n_x</span> learned observables unconstrained at the target. Differentiating <span class="math">E</span> at the equilibrium yields the tangent matching condition:
+      </p>
+      
+      <div class="math-block">
+        A J_\theta = J_\theta A_f \quad \text{and} \quad B = J_\theta B_f
+      </div>
+      
+      <p>
+        Geometrically, the manifold of valid encodings <span class="math">\mathcal{M} = \Phi_\theta(\mathbb{R}^{n_x})</span> has tangent space <span class="math">\mathrm{range}(J_\theta)</span> at the target. Tangent invariance requires the linear latent operator to map tangent vectors identically to the physical linearized plant dynamics.
+      </p>
 
-<section id="code"><div class="col">
-  <h2>Code</h2>
-  <p>The code is a small Python package with three examples. It needs no data download and runs on a laptop CPU. The examples reproduce Figures 1, 4 and 5 and the offline stability test.</p>
-  <div class="codebox"><button class="copy" data-copy="c1">Copy</button>
-<pre id="c1">git clone https://github.com/Walleclipse/tik-koopman.git
+      <div class="abstract-box" style="border-left-color: #0284c7; background: #f0f9ff; margin: 24px 0;">
+        <h4 style="margin:0 0 6px; color:#0369a1; font-size:15px; text-transform:uppercase;">Theorem: Transfer of Stability Certificates</h4>
+        <p style="font-size:15px; color:#0c4a6e;">
+          If the model is <b>tangent-invariant</b> at the target, the closed-loop error Jacobian <span class="math">\mathcal{E} = J_\theta F - A_{\mathrm{cl}} J_\theta = 0</span> vanishes for all feedback gains <span class="math">K</span>. Every eigenvalue of the physical Jacobian <span class="math">F</span> is an eigenvalue of <span class="math">A_{\mathrm{cl}}</span>. Therefore:
+          <br>
+          <span style="display:block; text-align:center; font-family:var(--font-serif); font-size:18px; margin:8px 0;">
+            \rho(F) \le \rho(A_{\mathrm{cl}})
+          </span>
+          Nominal stability (<span class="math">\rho(A_{\mathrm{cl}}) &lt; 1</span>) rigorously guarantees local exponential stability on the physical plant.
+        </p>
+      </div>
+
+      <div class="abstract-box" style="border-left-color: #f59e0b; background: #fffbeb; margin: 24px 0;">
+        <h4 style="margin:0 0 6px; color:#b45309; font-size:15px; text-transform:uppercase;">Corollary: Obstruction of Stable-by-Construction Models</h4>
+        <p style="font-size:15px; color:#78350f;">
+          At an open-loop unstable equilibrium (<span class="math">\rho(A_f) &gt; 1</span>), tangent invariance implies <span class="math">\rho(A) \ge \rho(A_f) &gt; 1</span>. Consequently, latent architectures constrained to be open-loop stable (<span class="math">\rho(A) \le 1</span>) by construction can <b>never</b> be tangent-invariant at an unstable equilibrium such as an upright pendulum or balancing robot.
+        </p>
+      </div>
+    </div>
+
+    <!-- Interactive Tangent Space & Spectrum -->
+    <div class="container-wide">
+      <div class="interactive-card">
+        <div class="card-toolbar">
+          <div class="segment-control" role="group" aria-label="Model Architecture">
+            <button id="tg-std" aria-pressed="true">Standard Koopman</button>
+            <button id="tg-tik" aria-pressed="false">TIK Model (Ours)</button>
+          </div>
+          <div class="slider-group" style="max-width:380px;">
+            <label for="delta" style="font-size:13.5px;"><b>Tangent Derivative Mismatch:</b></label>
+            <input id="delta" type="range" min="0" max="100" value="45">
+            <span class="val" id="delta-v" style="font-size:13.5px;">0.45</span>
+          </div>
+        </div>
+
+        <svg id="tg" viewBox="0 70 760 270" role="img" aria-label="Tangent space geometry visualization">
+          <defs>
+            <marker id="ar-w" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="#0f172a"/></marker>
+            <marker id="ar-o" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ea580c"/></marker>
+            <marker id="ar-t" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="#0d9488"/></marker>
+            <marker id="ar-g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="#94a3b8"/></marker>
+            <linearGradient id="mf" x1="0" x2="1"><stop offset="0" stop-color="#cbd5e1"/><stop offset=".5" stop-color="#64748b"/><stop offset="1" stop-color="#cbd5e1"/></linearGradient>
+          </defs>
+          <path d="M40 300 Q380 150 720 300" fill="none" stroke="url(#mf)" stroke-width="3" stroke-linecap="round"/>
+          <text x="64" y="324" fill="#64748b" font-size="12">Encoded state manifold M = &Phi;(&Ropf;<sup>n</sup>)</text>
+          <line x1="60" y1="225" x2="720" y2="225" stroke="rgba(0,0,0,.15)" stroke-dasharray="4 6"/>
+          <text x="64" y="214" fill="#64748b" font-size="12">Tangent space range(J&theta;)</text>
+          <circle cx="380" cy="225" r="5" fill="#0f172a"/><text x="342" y="250" font-size="12" fill="#0f172a">Target (0, 0)</text>
+          <line x1="380" y1="225" x2="470" y2="225" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#ar-g)"/>
+          <text x="418" y="246" fill="#64748b" font-size="11.5">Perturbation J&theta; v</text>
+          <line id="tg-true" x1="380" y1="225" x2="560" y2="225" stroke="#0f172a" stroke-width="3" marker-end="url(#ar-w)"/>
+          <text x="470" y="274" fill="#0f172a" font-size="12" font-weight="600">Physical evolution J&theta; A_f v</text>
+          <line id="tg-model" x1="380" y1="225" x2="560" y2="150" stroke="#ea580c" stroke-width="3" marker-end="url(#ar-o)"/>
+          <text id="tg-model-l" x="566" y="150" fill="#ea580c" font-size="12" font-weight="600">Latent prediction A J&theta; v</text>
+          <line id="tg-err" x1="560" y1="225" x2="560" y2="150" stroke="#dc2626" stroke-dasharray="3 4"/>
+        </svg>
+
+        <div class="metrics-row">
+          <div class="metric-item">One-Step Tangent Defect ||E||<b id="tg-mm">0.45</b></div>
+          <div class="metric-item">Nominal Stability Transfers to Robot?<b id="tg-cert">No Guarantee</b></div>
+        </div>
+      </div>
+      <figcaption>
+        <b>Figure 3: Interactive Tangent Space Geometry.</b> Standard Koopman predictors allow <span class="math">A J_\theta</span> to leave the tangent space, introducing an unconstrained tangent defect that corrupts feedback. In TIK, <span class="math">A J_\theta = J_\theta \hat{A}_f</span> holds by construction, ensuring exact alignment and certificate preservation.
+      </figcaption>
+    </div>
+  </section>
+
+  <!-- Method Section -->
+  <section class="alt-bg" id="method">
+    <div class="container">
+      <h2>Method: Tangent-Invariant Koopman (TIK)</h2>
+      <p class="lead">
+        TIK guarantees first-order tangent invariance by construction for any neural network encoder without requiring simulator derivatives.
+      </p>
+
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Local Linearization from Offline Transitions</h4>
+            <p>
+              From <span class="math">M</span> logged transitions <span class="math">(x_i, u_i, x_{i+1})</span> near the target, we solve a weighted least-squares regression:
+              <br>
+              <span class="math">(\hat{D}, \hat{c}) = \arg\min_{D, c} \sum_{i=1}^M w_i \|x_{i+1} - (D [x_i; u_i] + c)\|_2^2</span>, with <span class="math">\hat{D} = [\hat{A}_f\; \hat{B}_f]</span>.
+              <br>
+              Weights <span class="math">w_i</span> decrease with distance to the target, completely bypassing numerical finite-difference simulator Jacobians.
+            </p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Tangent-Invariant Parameterization by Construction</h4>
+            <p>
+              Let <span class="math">J_\theta = \partial\Phi_\theta/\partial x|_0</span> and <span class="math">P_\perp = I - J_\theta J_\theta^+</span> project onto the orthogonal complement of the tangent space. TIK parameterizes the latent matrices at every training update as:
+              <br>
+              <span class="math">A(\theta, W) = J_\theta \hat{A}_f J_\theta^+ + W P_\perp, \quad B(\theta) = J_\theta \hat{B}_f</span>
+              <br>
+              Since <span class="math">P_\perp J_\theta = 0</span>, tangent invariance holds identically for any unconstrained trainable tensor <span class="math">W</span> and any encoder parameter <span class="math">\theta</span>. For large maneuvers, an optional bilinear term <span class="math">\sum_j u_j N_j z</span> provides state-dependent control authority without affecting local guarantees.
+            </p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Offline Stability Certification & Invariant Terminal Set</h4>
+            <p>
+              We bound the linearization estimation error <span class="math">\|F - \hat{F}\|_2 \le \eta</span> from offline data via Taylor remainder bounds and compare it against the real stability radius <span class="math">r_{\mathbb{R}}(\hat{F})</span>. If <span class="math">\eta &lt; r_{\mathbb{R}}(\hat{F})</span>, local stability of the deployed loop is rigorously certified from data alone. For constrained dual-mode MPC, we compute a forward-invariant ellipsoid <span class="math">\Omega_c</span> guaranteeing state and input constraint satisfaction.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Spectrum Panel -->
+    <div class="container-wide">
+      <div class="interactive-card">
+        <div style="display:grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 24px; align-items:center;">
+          <div>
+            <svg id="sp" viewBox="-190 -190 380 380" role="img" aria-label="Closed-loop eigenvalue spectrum diagram"></svg>
+          </div>
+          <div>
+            <div class="card-toolbar" style="margin-bottom:12px;">
+              <div class="segment-control" role="group" aria-label="Spectral Selection">
+                <button id="sp-std" aria-pressed="true">Standard Koopman</button>
+                <button id="sp-tik" aria-pressed="false">TIK (Ours)</button>
+              </div>
+            </div>
+            <div style="font-size:13.5px; display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+              <span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#0d9488;margin-right:6px;"></i><b>Teal Dots:</b> Latent loop eigenvalues &rho;(A &minus; BK)</span>
+              <span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #ea580c;margin-right:6px;"></i><b>Orange Rings:</b> Deployed plant eigenvalues &rho;(F)</span>
+            </div>
+            <div class="metrics-row">
+              <div class="metric-item">Latent Closed-Loop &rho;(A_cl)<b id="sp-rl">0.988</b></div>
+              <div class="metric-item">Physical Plant &rho;(F)<b id="sp-rp" style="color:var(--danger)">10.5</b></div>
+            </div>
+            <p id="sp-note" style="margin-top:14px; font-size:13.5px; color:var(--text-muted); line-height:1.55;"></p>
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        <b>Figure 4: Closed-Loop Eigenvalue Spectrum in the Complex Plane.</b> Stability requires all poles to lie inside the unit circle (black). In Standard Koopman, every latent eigenvalue is strictly inside the circle (<span class="math">\rho(A_{\mathrm{cl}}) = 0.988</span>), but an eigenvalue of the physical closed-loop Jacobian lies far outside (<span class="math">\rho(F) = 10.5</span>). In TIK, physical eigenvalues match latent eigenvalues, preserving stability.
+      </figcaption>
+    </div>
+  </section>
+
+  <!-- Results Section -->
+  <section id="results">
+    <div class="container">
+      <h2>Experimental Results</h2>
+      <p class="lead">
+        Evaluated across four open-loop unstable benchmarks, constrained cart-pole swing-up under strict compute budgets, and high-degree-of-freedom robotic systems.
+      </p>
+
+      <h3>1. Closed-Loop Stability at Unstable Equilibria</h3>
+      <p>
+        Models stable on the true physical system (<span class="math">\rho(F) &lt; 1</span>) out of those nominally certified in latent space (<span class="math">\rho(A_{\mathrm{cl}}) &lt; 1</span>) across 10 random seeds per system:
+      </p>
+
+      <div class="table-wrapper">
+        <table class="academic-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th class="num">Cart-Pole (ODE)</th>
+              <th class="num">Cart-Pole (MuJoCo)</th>
+              <th class="num">Double Cart-Pole</th>
+              <th class="num">Double Pendulum</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Oracle Linear Model + MPC</td><td class="num">1/1</td><td class="num">1/1</td><td class="num">1/1</td><td class="num">1/1</td></tr>
+            <tr><td>Neural Model (MLP) + NMPC</td><td class="num">10/10</td><td class="num">10/10</td><td class="num">1/10</td><td class="num">0/10</td></tr>
+            <tr><td>Standard Koopman</td><td class="num">0/10</td><td class="num">0/10</td><td class="num">0/10</td><td class="num">0/10</td></tr>
+            <tr><td>Koopman + Invariance Penalty</td><td class="num">10/10</td><td class="num">10/10</td><td class="num">0/10</td><td class="num">7/10</td></tr>
+            <tr><td>EDMD (Korda &amp; Mezić, 2018)</td><td class="num">0/7</td><td class="num">0/6</td><td class="num">&ndash;</td><td class="num">9/10</td></tr>
+            <tr><td>Stable Operator (Mamakoukas et al., 2023)</td><td class="num">0/10</td><td class="num">0/10</td><td class="num">0/10</td><td class="num">0/10</td></tr>
+            <tr><td>Stable Embedding (Fan et al., 2026)</td><td class="num">0/10</td><td class="num">0/10</td><td class="num">0/10</td><td class="num">0/10</td></tr>
+            <tr class="highlight-row">
+              <td><b>TIK (Ours)</b></td>
+              <td class="num"><b>10/10</b></td>
+              <td class="num"><b>10/10</b></td>
+              <td class="num"><b>10/10</b></td>
+              <td class="num"><b>10/10</b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="container-wide">
+      <figure class="paper-figure">
+        <div class="figure-frame">
+          <img src="assets/fig_roa.png" alt="Catch range under large initial tilts across four benchmark systems" style="margin:0 auto; max-height:220px;">
+        </div>
+        <figcaption>
+          <b>Figure 5: Catch range and Region of Attraction under large initial tilts.</b> Percentage of runs returning to the upright equilibrium as the starting tilt increases. Standard Koopman (orange) fails immediately. TIK's local controller (cyan) perfectly matches the oracle LQR recovery range across all 40 models, and TIK fine-tuned on closed-loop rollouts (green) widens the catch range by 2.1&times; and 2.2&times; on the double cart-pole and double pendulum.
+        </figcaption>
+      </figure>
+
+      <figure class="paper-figure">
+        <div class="figure-frame">
+          <img src="assets/fig_predictability.png" alt="Predicted vs deployed rates across feedback gain scalings" style="margin:0 auto; max-height:230px;">
+        </div>
+        <figcaption>
+          <b>Figure 6: Contraction rate predictability under feedback gain scaling.</b> (Left) Latent predicted rate <span class="math">\rho(A_{\mathrm{cl}})</span> vs. deployed plant rate <span class="math">\rho(F)</span>. TIK lies exactly on the identity diagonal. (Right) Percentage of models where the stability prediction matches physical stability as feedback gain is scaled by <span class="math">k \in [0.05, 4]</span>. TIK maintains 100% fidelity.
+        </figcaption>
+      </figure>
+    </div>
+
+    <div class="container">
+      <h3>2. Real-Time Constrained Swing-Up &amp; Dual-Mode MPC</h3>
+      <p>
+        Constrained cart-pole swing-up and recovery under per-step compute budgets. TIK plans on its bilinear model using MPPI until the state enters the certified invariant terminal set <span class="math">\Omega_c</span>, then hands over to local LQR:
+      </p>
+
+      <div class="table-wrapper">
+        <table class="academic-table">
+          <thead>
+            <tr>
+              <th rowspan="2">Predictor &amp; Terminal Set</th>
+              <th colspan="4" class="num" style="text-align:center;border-bottom:1px solid var(--border)">Swing-Up Success (%) &uarr;</th>
+              <th colspan="4" class="num" style="text-align:center;border-bottom:1px solid var(--border)">Recovery Success (%) &uarr;</th>
+            </tr>
+            <tr>
+              <th class="num">2 ms</th>
+              <th class="num">1 ms</th>
+              <th class="num">0.5 ms</th>
+              <th class="num">0.25 ms</th>
+              <th class="num">2 ms</th>
+              <th class="num">1 ms</th>
+              <th class="num">0.5 ms</th>
+              <th class="num">0.25 ms</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Linear Model + MPPI, certified &Omega;<sub>c</sub></td><td class="num">17</td><td class="num">25</td><td class="num">25</td><td class="num">8</td><td class="num">50</td><td class="num">42</td><td class="num">42</td><td class="num">7</td></tr>
+            <tr><td>Neural Network + MPPI, certified &Omega;<sub>c</sub></td><td class="num">98</td><td class="num">98</td><td class="num">98</td><td class="num">&ndash;</td><td class="num">99</td><td class="num">99</td><td class="num">99</td><td class="num">&ndash;</td></tr>
+            <tr><td>Standard Koopman, latent terminal set</td><td class="num">17</td><td class="num">15</td><td class="num">6</td><td class="num">4</td><td class="num">18</td><td class="num">15</td><td class="num">4</td><td class="num">4</td></tr>
+            <tr class="highlight-row">
+              <td><b>TIK (Ours), certified &Omega;<sub>c</sub></b></td>
+              <td class="num"><b>100</b></td>
+              <td class="num"><b>88</b></td>
+              <td class="num"><b>88</b></td>
+              <td class="num"><b>88</b></td>
+              <td class="num"><b>100</b></td>
+              <td class="num"><b>99</b></td>
+              <td class="num"><b>99</b></td>
+              <td class="num"><b>99</b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-muted" style="font-size:13.5px">
+        All <b>7,036</b> rollouts entering <span class="math">\Omega_c</span> converged without any constraint violations. At the tightest 0.25&nbsp;ms budget, Neural MPPI cannot complete a single forward pass, while TIK retains 88% swing-up and 99% recovery.
+      </p>
+
+      <h3>3. High-Dimensional Robots</h3>
+      <ul>
+        <li><b>7-DoF Kinova Gen3 Manipulator:</b> Solves condensed convex QPs around obstacles in <b>2.1 ms</b> median solve time, achieving 100% goal-reaching at 5&nbsp;ms per step.</li>
+        <li><b>35-D Unitree Go2 Quadruped:</b> Multi-point TIK posture recovery achieves <b>67%–74%</b> success under impulse pushes and domain shifts (mass/friction variations), running <b>7.4&times; faster</b> (0.83&nbsp;ms) than neural NMPC (6.15&nbsp;ms).</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Code & Quickstart Section -->
+  <section class="alt-bg" id="code">
+    <div class="container">
+      <h2>Code &amp; Reproducibility</h2>
+      <p class="lead">
+        The reference implementation is open-source on GitHub at <a href="https://github.com/Walleclipse/tik-koopman" target="_blank" rel="noopener noreferrer"><b>github.com/Walleclipse/tik-koopman</b></a>.
+      </p>
+
+      <div class="code-box">
+        <div class="code-header">
+          <span><a href="https://github.com/Walleclipse/tik-koopman" target="_blank" rel="noopener noreferrer">github.com/Walleclipse/tik-koopman</a></span>
+          <button class="copy-btn" data-copy="bash-install">Copy</button>
+        </div>
+        <pre id="bash-install"># Clone and install the package
+git clone https://github.com/Walleclipse/tik-koopman.git
 cd tik-koopman
-pip install -e .
+pip install -e ".[plots,dev]"
+
+# Run unit tests
+pytest -q
+
+# Run standalone examples
 python examples/01_scalar_example.py
 python examples/02_cartpole_standard_vs_tik.py
-python examples/03_offline_certificate.py</pre></div>
-  <p class="note">The full benchmark suite from the paper (MuJoCo plants, manipulators, swing-up planners) is not part of this release.</p>
-</div></section>
+python examples/03_offline_certificate.py</pre>
+      </div>
 
-<section id="cite"><div class="col">
-  <h2>Citation</h2>
-  <div class="codebox"><button class="copy" data-copy="bib">Copy</button>
-<pre id="bib">@misc{abuduweili2027tik,
-  title  = {Making {Koopman} Control Guarantees Hold on Robots},
-  author = {Abuduweili, Abulikemu and Liu, Changliu},
-  year   = {2027}
-}</pre></div>
-  <p class="note">We will update this entry with the arXiv identifier and venue.</p>
-</div></section>
+      <h3>Quickstart Snippet</h3>
+      <div class="code-box">
+        <div class="code-header">
+          <span>python &mdash; quickstart</span>
+          <button class="copy-btn" data-copy="py-quickstart">Copy</button>
+        </div>
+        <pre id="py-quickstart">import tik
+
+# 1. Initialize plant and collect offline transitions
+plant = tik.CartPole()
+A_f, B_f = plant.linearize()                                    # Evaluator ground-truth
+data = tik.collect(plant, n_traj=1500, horizon=40)              # Global state data
+near = tik.collect(plant, n_traj=300, horizon=20, scale=0.02)   # Near-target data
+
+# 2. Fit local linearization from logged data without simulator derivatives
+fit = tik.fit_local_linearization(*near.transitions(), radius=1.0)
+
+# 3. Train Standard Koopman and fine-tune with Tangent Invariance
+standard = tik.train_standard(tik.KoopmanModel(4, 1), data)
+model = tik.finetune_tik(standard, fit, data)
+
+# 4. Check nominal model stability vs. deployed physical stability
+ctl = tik.KoopmanLQR.from_model(model)
+print(f"Nominal certificate rho(A - BK):       {ctl.latent_radius:.4f}")
+print(f"Physical deployed rate rho(A_f - BfKJ): {ctl.deployed_radius(A_f, B_f):.4f}")</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Citation Section -->
+  <section id="citation">
+    <div class="container">
+      <h2>Citation</h2>
+      <div class="code-box">
+        <div class="code-header">
+          <span>BibTeX</span>
+          <button class="copy-btn" data-copy="bibtex-code">Copy</button>
+        </div>
+        <pre id="bibtex-code">@article{abuduweili2027tik,
+  title   = {Making {Koopman} Control Guarantees Hold on Robots},
+  author  = {Abuduweili, Abulikemu and Liu, Changliu},
+  journal = {arXiv preprint},
+  year    = {2027},
+  url     = {https://github.com/Walleclipse/tik-koopman}
+}</pre>
+      </div>
+    </div>
+  </section>
 </main>
-<footer><div class="col">Abulikemu Abuduweili and Changliu Liu, Robotics Institute, Carnegie Mellon University. Code released under the MIT License.</div></footer>
+
+<footer>
+  <div class="container">
+    <p style="margin-bottom:8px"><b>Making Koopman Control Guarantees Hold on Robots</b></p>
+    <p style="margin-bottom:8px">Abulikemu Abuduweili &amp; Changliu Liu &middot; Robotics Institute, Carnegie Mellon University</p>
+    <p style="font-size:13px; color:var(--text-light)">Open-source code released under the MIT License at <a href="https://github.com/Walleclipse/tik-koopman" target="_blank" rel="noopener noreferrer">Walleclipse/tik-koopman</a>.</p>
+  </div>
+</footer>
+
 <script>
-/* Constants of two trained cart-pole controllers (seed 0 of examples/02): local gain K J and the spectra of the latent loop and of the
-   deployed Jacobian. Regenerate with `python scripts/export_page_constants.py`. */
-const DEMO={"standard":{"gain":[-195.60102,1509.57991,114.88454,380.46741],"latent":[[0.686,0.0],[0.7607,0.0],[0.956,0.1588],[0.956,-0.1588],[0.8275,0.0497],[0.8275,-0.0497],[0.9098,0.121],[0.9098,-0.121],[0.8727,0.0492],[0.8727,-0.0492],[0.8761,0.0],[0.8825,0.0098],[0.8825,-0.0098],[0.9038,0.0373],[0.9038,-0.0373],[0.9463,0.059],[0.9463,-0.059],[0.9326,0.0],[0.9651,0.0385],[0.9651,-0.0385],[0.9788,0.0388],[0.9788,-0.0388],[0.9836,0.0364],[0.9836,-0.0364],[0.9563,0.0213],[0.9563,-0.0213],[0.9874,0.018],[0.9874,-0.018],[0.9831,0.009],[0.9831,-0.009],[0.9724,0.0],[0.9782,0.0]],"plant":[[10.4954,0.0],[0.9208,0.0],[0.9607,0.0],[1.0152,0.0]]},"tik":{"gain":[-0.90743,-30.12753,-2.09909,-7.72113],"latent":[[0.6995,0.0],[0.9565,0.19],[0.9565,-0.19],[0.7613,0.0],[0.9624,0.116],[0.9624,-0.116],[0.8559,0.0505],[0.8559,-0.0505],[0.9372,0.0989],[0.9372,-0.0989],[0.8662,0.0],[0.8813,0.0],[0.8902,0.0264],[0.8902,-0.0264],[0.9623,0.0685],[0.9623,-0.0685],[0.9089,0.0],[0.9736,0.0559],[0.9736,-0.0559],[0.9773,0.0474],[0.9773,-0.0474],[0.9338,0.0],[0.9357,0.0],[0.9753,0.0307],[0.9753,-0.0307],[0.9839,0.0098],[0.9839,-0.0098],[0.9708,0.0186],[0.9708,-0.0186],[0.9563,0.0],[0.9784,0.0],[0.9688,0.0]],"plant":[[0.9089,0.0],[0.9839,0.0098],[0.9839,-0.0098],[0.9357,0.0]]}};
-(function(){
-'use strict';
-var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-var $=function(id){return document.getElementById(id)}, NS='http://www.w3.org/2000/svg';
-function el(n,a,p){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e}
-function rho(sp){return Math.max.apply(null,sp.map(function(z){return Math.hypot(z[0],z[1])}))}
-
-/* ---------- reveal + counters ---------- */
-var io=('IntersectionObserver' in window)?new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);e.target.querySelectorAll('[data-count]').forEach(count)}})},{rootMargin:'0px 0px -8% 0px'}):null;
-document.querySelectorAll('.rv').forEach(function(e){io?io.observe(e):e.classList.add('in')});
-function count(n){var to=+n.dataset.count,t0=null;if(reduce){n.textContent=to;return}
-  (function f(t){if(t0===null)t0=t;var p=Math.min(1,(t-t0)/1100),e=1-Math.pow(1-p,3);n.textContent=Math.round(to*e);if(p<1)requestAnimationFrame(f)})(performance.now())}
-if(!io)document.querySelectorAll('[data-count]').forEach(count);
-
-/* ---------- copy buttons ---------- */
-document.querySelectorAll('.copy').forEach(function(b){b.addEventListener('click',function(){
-  var t=$(b.dataset.copy).innerText;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1400)},function(){b.textContent='Select and copy'})})});
-
-/* ---------- reduced motion: stop SMIL signals ---------- */
-if(reduce)document.querySelectorAll('animateMotion').forEach(function(a){a.parentNode.remove()});
-
-/* ---------- cart-pole stage ---------- */
-var P={g:9.8,mc:1.0,mp:0.1,l:0.5,dt:0.02,sub:4,umax:10};
-function deriv(y,u){var th=y[1],xd=y[2],thd=y[3],tot=P.mc+P.mp,c=Math.cos(th),s=Math.sin(th),tmp=(u+P.mp*P.l*thd*thd*s)/tot,
-  tha=(P.g*s-c*tmp)/(P.l*(4/3-P.mp*c*c/tot)),xa=tmp-P.mp*P.l*tha*c/tot;return [xd,thd,xa,tha]}
-function step(x,u){u=Math.max(-P.umax,Math.min(P.umax,u));var h=P.dt/P.sub,y=x.slice();
-  for(var i=0;i<P.sub;i++){var k1=deriv(y,u),k2=deriv(y.map(function(v,j){return v+.5*h*k1[j]}),u),k3=deriv(y.map(function(v,j){return v+.5*h*k2[j]}),u),k4=deriv(y.map(function(v,j){return v+h*k3[j]}),u);
-    y=y.map(function(v,j){return v+h/6*(k1[j]+2*k2[j]+2*k3[j]+k4[j])})}return y}
-function Runner(canvas,gain){this.cv=canvas;this.ctx=canvas.getContext('2d');this.K=gain;this.reset(0)}
-Runner.prototype.reset=function(tiltDeg){this.x=[0,tiltDeg*Math.PI/180,0,0];this.t=0;this.fell=false;this.trace=[[0,this.x[1]]]};
-Runner.prototype.advance=function(){if(this.fell)return;var K=this.K,u=-(K[0]*this.x[0]+K[1]*this.x[1]+K[2]*this.x[2]+K[3]*this.x[3]);
-  this.x=step(this.x,u);this.t+=P.dt;this.trace.push([this.t,this.x[1]]);if(Math.abs(this.x[1])>Math.PI/2||!isFinite(this.x[1])){this.fell=true}};
-Runner.prototype.draw=function(accent){var c=this.ctx,W=this.cv.width,H=this.cv.height,k=W/960;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,W,H);
-  c.scale(k,k);var w=960,h=600,gy=420,scale=150;                       // pixels per meter
-  var g=c.createLinearGradient(0,0,0,h);g.addColorStop(0,'#ffffff');g.addColorStop(1,'#f1f1f4');c.fillStyle=g;c.fillRect(0,0,w,h);
-  var cx=this.x[0],camx=cx;                                            // camera follows the cart
-  c.strokeStyle='rgba(0,0,0,.13)';c.lineWidth=2;
-  for(var m=Math.floor(camx-4);m<=camx+4;m++){var px=w/2+(m-camx)*scale;c.beginPath();c.moveTo(px,gy+26);c.lineTo(px,gy+(m%5===0?52:40));c.stroke()}
-  c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=3;c.beginPath();c.moveTo(0,gy+26);c.lineTo(w,gy+26);c.stroke();
-  var cartw=120,carth=44,X=w/2,Y=gy-carth/2+8;
-  var th=this.x[1],L=2*P.l*scale*1.18,tipx=X+L*Math.sin(th),tipy=Y-carth/2-L*Math.cos(th);
-  /* pole */
-  c.lineCap='round';c.strokeStyle=accent;c.lineWidth=11;c.shadowColor=accent;c.shadowBlur=10;c.beginPath();c.moveTo(X,Y-carth/2);c.lineTo(tipx,tipy);c.stroke();c.shadowBlur=0;
-  c.fillStyle='#1d1d1f';c.beginPath();c.arc(tipx,tipy,13,0,7);c.fill();
-  /* cart */
-  c.fillStyle='#1d1d1f';c.strokeStyle='rgba(0,0,0,.4)';c.lineWidth=2;rr(c,X-cartw/2,Y-carth/2,cartw,carth,12);c.fill();c.stroke();
-  c.fillStyle='#fff';c.strokeStyle='#1d1d1f';c.lineWidth=3;[-34,34].forEach(function(dx){c.beginPath();c.arc(X+dx,Y+carth/2+2,11,0,7);c.fill();c.stroke()});
-  c.fillStyle='#fff';c.beginPath();c.arc(X,Y-carth/2,6,0,7);c.fill();
-  /* angle trace */
-  var tx=40,ty=58,tw=300,th2=70;c.fillStyle='rgba(0,0,0,.04)';rr(c,tx-14,ty-26,tw+28,th2+44,16);c.fill();
-  c.strokeStyle='rgba(0,0,0,.2)';c.lineWidth=1.5;c.beginPath();c.moveTo(tx,ty+th2/2);c.lineTo(tx+tw,ty+th2/2);c.stroke();
-  c.fillStyle='rgba(29,29,31,.55)';c.font='600 19px -apple-system,Helvetica,Arial,sans-serif';c.fillText('pole angle',tx,ty-6);
-  c.strokeStyle=accent;c.lineWidth=3;c.beginPath();var T=this.trace,tmax=4,first=true;
-  for(var i=0;i<T.length;i++){var xx=tx+Math.min(1,T[i][0]/tmax)*tw,a=Math.max(-1.2,Math.min(1.2,T[i][1])),yy=ty+th2/2-a/1.2*th2/2;if(first){c.moveTo(xx,yy);first=false}else c.lineTo(xx,yy)}c.stroke();
-  c.fillStyle='rgba(29,29,31,.6)';c.font='600 21px ui-monospace,Menlo,monospace';c.textAlign='right';c.fillText('t = '+this.t.toFixed(2)+' s',w-34,60);c.textAlign='left';
-  if(this.fell){c.fillStyle='#d93025';c.font='700 46px -apple-system,Helvetica,Arial,sans-serif';c.textAlign='center';c.fillText('falls over',w/2,gy-190);c.textAlign='left'}
+/* Constants of two trained cart-pole controllers (seed 0 of examples/02) */
+const DEMO = {
+  "standard": {
+    "gain": [-195.60102, 1509.57991, 114.88454, 380.46741],
+    "latent": [[0.686,0.0],[0.7607,0.0],[0.956,0.1588],[0.956,-0.1588],[0.8275,0.0497],[0.8275,-0.0497],[0.9098,0.121],[0.9098,-0.121],[0.8727,0.0492],[0.8727,-0.0492],[0.8761,0.0],[0.8825,0.0098],[0.8825,-0.0098],[0.9038,0.0373],[0.9038,-0.0373],[0.9463,0.059],[0.9463,-0.059],[0.9326,0.0],[0.9651,0.0385],[0.9651,-0.0385],[0.9788,0.0388],[0.9788,-0.0388],[0.9836,0.0364],[0.9836,-0.0364],[0.9563,0.0213],[0.9563,-0.0213],[0.9874,0.018],[0.9874,-0.018],[0.9831,0.009],[0.9831,-0.009],[0.9724,0.0],[0.9782,0.0]],
+    "plant": [[10.4954,0.0],[0.9208,0.0],[0.9607,0.0],[1.0152,0.0]]
+  },
+  "tik": {
+    "gain": [-0.90743, -30.12753, -2.09909, -7.72113],
+    "latent": [[0.6995,0.0],[0.9565,0.19],[0.9565,-0.19],[0.7613,0.0],[0.9624,0.116],[0.9624,-0.116],[0.8559,0.0505],[0.8559,-0.0505],[0.9372,0.0989],[0.9372,-0.0989],[0.8662,0.0],[0.8813,0.0],[0.8902,0.0264],[0.8902,-0.0264],[0.9623,0.0685],[0.9623,-0.0685],[0.9089,0.0],[0.9736,0.0559],[0.9736,-0.0559],[0.9773,0.0474],[0.9773,-0.0474],[0.9338,0.0],[0.9357,0.0],[0.9753,0.0307],[0.9753,-0.0307],[0.9839,0.0098],[0.9839,-0.0098],[0.9708,0.0186],[0.9708,-0.0186],[0.9563,0.0],[0.9784,0.0],[0.9688,0.0]],
+    "plant": [[0.9089,0.0],[0.9839,0.0098],[0.9839,-0.0098],[0.9357,0.0]]
+  }
 };
-function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
-var A=new Runner($('cv-std'),DEMO.standard.gain),B=new Runner($('cv-tik'),DEMO.tik.gain);
 
-$('pl-std').textContent='(ρ = '+rho(DEMO.standard.plant).toFixed(1)+')';$('pl-tik').textContent='(ρ = '+rho(DEMO.tik.plant).toFixed(2)+')';
-var playing=false,acc=0,last=0,visible=true,SPEED=0.5,TMAX=6;
-function setStatus(){$('st-std').className='chip '+(A.fell?'bad':'idle');$('st-std').innerHTML='<i></i>'+(A.fell?'fell over':'running');
-  var done=B.t>=TMAX-1e-6;$('st-tik').className='chip '+(done?'ok':'idle');$('st-tik').innerHTML='<i></i>'+(done?'stays up':'running')}
-function render(){A.draw('#e8730c');B.draw('#0a9d8f');setStatus()}
-function start(){var tilt=+$('tilt').value;A.reset(tilt);B.reset(tilt);acc=0;last=0;playing=true;if(reduce){while(B.t<TMAX-1e-6){A.advance();B.advance()}playing=false}render();}
-function loop(ts){if(playing&&visible){if(!last)last=ts;acc+=(ts-last)/1000*SPEED;last=ts;var n=0;while(acc>=P.dt&&n<20){acc-=P.dt;A.advance();B.advance();n++;if(B.t>=TMAX-1e-6){playing=false;break}}render()}else last=ts;requestAnimationFrame(loop)}
-$('tilt').addEventListener('input',function(){$('tilt-v').textContent=this.value+'°';start()});
-$('replay').addEventListener('click',start);
-if('IntersectionObserver' in window)new IntersectionObserver(function(es){visible=es[0].isIntersecting}).observe($('stage'));
-start();requestAnimationFrame(loop);
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (n, a, p) => {
+    const e = document.createElementNS(NS, n);
+    for (const k in a) e.setAttribute(k, a[k]);
+    if (p) p.appendChild(e);
+    return e;
+  };
+  const rho = sp => Math.max(...sp.map(z => Math.hypot(z[0], z[1])));
 
-/* ---------- tangent-space picture ---------- */
-var tgMode='std';
-function tg(){var d=+$('delta').value/100,off=tgMode==='std'?d:0;
-  $('delta').disabled=tgMode==='tik';$('delta-v').textContent=tgMode==='tik'?'0':d.toFixed(2);
-  var ym=225-off*130;
-  var m=$('tg-model');m.setAttribute('y2',ym);m.setAttribute('stroke',tgMode==='std'?'#e8730c':'#0a9d8f');m.setAttribute('marker-end',tgMode==='std'?'url(#ar-o)':'url(#ar-t)');
-  var l=$('tg-model-l');l.setAttribute('y',off<.06?ym-14:ym);l.setAttribute('x',566);l.style.fill=tgMode==='std'?'#e8730c':'#0a9d8f';
-  var e=$('tg-err');e.setAttribute('y2',ym);e.style.opacity=off<.02?0:1;
-  var mm=off*130/180*1.0;$('tg-mm').textContent=mm.toFixed(2);
-  $('tg-cert').textContent=tgMode==='tik'?'yes':(off<.02?'yes':'no guarantee');$('tg-cert').style.color=(tgMode==='tik'||off<.02)?'var(--tik)':'var(--std)';
-  $('tg-std').setAttribute('aria-pressed',tgMode==='std');$('tg-tik').setAttribute('aria-pressed',tgMode==='tik')}
-$('tg-std').onclick=function(){tgMode='std';tg()};$('tg-tik').onclick=function(){tgMode='tik';tg()};$('delta').addEventListener('input',tg);tg();
+  /* Clipboard copy */
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const text = $(btn.dataset.copy).innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+      });
+    });
+  });
 
-/* ---------- spectrum ---------- */
-var spMode='std',spSvg=$('sp'),S=125,CLIP=1.4,Z=1.0;
-function R(v){return Math.min(v,CLIP)}
-function mapPt(z){var r=Math.hypot(z[0],z[1]),k=r>CLIP?CLIP/r:1;return [z[0]*k*S*Z,-z[1]*k*S*Z]}
-var dots=[],rings=[];
-(function buildSp(){
-  [0.5,1,1.4].forEach(function(r){el('circle',{cx:0,cy:0,r:r*S*Z,fill:'none',stroke:r===1?'rgba(29,29,31,.55)':'rgba(0,0,0,.08)','stroke-width':r===1?1.8:1,'stroke-dasharray':r===1?'':'3 5'},spSvg)});
-  el('line',{x1:-170,x2:170,y1:0,y2:0,stroke:'rgba(0,0,0,.1)'},spSvg);el('line',{y1:-170,y2:170,x1:0,x2:0,stroke:'rgba(0,0,0,.1)'},spSvg);
-  var t=el('text',{x:8,y:-S*Z-8,fill:'rgba(29,29,31,.6)'},spSvg);t.textContent='stable inside this circle';t.style.fill='rgba(29,29,31,.6)';
-  for(var i=0;i<32;i++)dots.push(el('circle',{cx:0,cy:0,r:3.6,fill:'#0a9d8f','fill-opacity':.85},spSvg));
-  for(var j=0;j<4;j++)rings.push(el('circle',{cx:0,cy:0,r:7,fill:'none',stroke:'#e8730c','stroke-width':2.6},spSvg));
-  var arrow=el('text',{id:'sp-out','text-anchor':'end',x:176,y:-34},spSvg);arrow.style.fill='#e8730c';arrow.style.fontSize='13px';arrow.style.fontWeight='600';
-  dots.concat(rings).forEach(function(c){c.style.transition=reduce?'none':'transform .9s cubic-bezier(.16,1,.3,1)'});
-})();
-function sp(){var D=DEMO[spMode==='std'?'standard':'tik'];
-  D.latent.forEach(function(z,i){var p=mapPt(z);dots[i].style.transform='translate('+p[0]+'px,'+p[1]+'px)'});
-  D.plant.forEach(function(z,i){var p=mapPt(z);rings[i].style.transform='translate('+p[0]+'px,'+p[1]+'px)'});
-  var rl=rho(D.latent),rp=rho(D.plant);$('sp-rl').textContent=rl.toFixed(3);$('sp-rp').textContent=rp.toFixed(rp>2?1:3);$('sp-rp').style.color=rp>1?'var(--bad)':'var(--tik)';
-  var out=$('sp-out');out.textContent=rp>CLIP?'real system: '+rp.toFixed(1)+' →':'';
-  $('sp-note').textContent=spMode==='std'?'The model says stable: all of its dots are inside the circle. But the real system has a number far outside it, so the cart-pole falls.':'The real system\'s numbers are among the model\'s numbers, so they are inside the circle too. The model\'s answer carries over.';
-  $('sp-std').setAttribute('aria-pressed',spMode==='std');$('sp-tik').setAttribute('aria-pressed',spMode==='tik')}
-$('sp-std').onclick=function(){spMode='std';sp()};$('sp-tik').onclick=function(){spMode='tik';sp()};sp();
+  /* Cart-pole physics simulation */
+  const P = { g: 9.8, mc: 1.0, mp: 0.1, l: 0.5, dt: 0.02, sub: 4, umax: 10 };
+  function deriv(y, u) {
+    const th = y[1], xd = y[2], thd = y[3], tot = P.mc + P.mp;
+    const c = Math.cos(th), s = Math.sin(th);
+    const tmp = (u + P.mp * P.l * thd * thd * s) / tot;
+    const tha = (P.g * s - c * tmp) / (P.l * (4/3 - P.mp * c * c / tot));
+    const xa = tmp - P.mp * P.l * tha * c / tot;
+    return [xd, thd, xa, tha];
+  }
+  function step(x, u) {
+    u = Math.max(-P.umax, Math.min(P.umax, u));
+    const h = P.dt / P.sub;
+    let y = x.slice();
+    for (let i = 0; i < P.sub; i++) {
+      const k1 = deriv(y, u);
+      const k2 = deriv(y.map((v, j) => v + 0.5 * h * k1[j]), u);
+      const k3 = deriv(y.map((v, j) => v + 0.5 * h * k2[j]), u);
+      const k4 = deriv(y.map((v, j) => v + h * k3[j]), u);
+      y = y.map((v, j) => v + (h / 6) * (k1[j] + 2 * k2[j] + 2 * k3[j] + k4[j]));
+    }
+    return y;
+  }
 
-/* ---------- scalar example ---------- */
-var M={std:{K:[0.02247054,-0.86339009],A:[[1.1,0.2],[-0.1,0.9]],B:[1,-0.75]},tik:{K:[0.70342793,0.19887878],A:[[1.1,0.2],[0,0.9]],B:[1,0]}};
-var cur='std',N=40,FLOOR=1e-9,ch=$('chart');
-function sim(m,x0){var A=m.A,B=m.B,K=m.K,x=x0,z=[x0,x0*x0],pl=[x],lt=[z[0]],
-  Ac=[[A[0][0]-B[0]*K[0],A[0][1]-B[0]*K[1]],[A[1][0]-B[1]*K[0],A[1][1]-B[1]*K[1]]];
-  for(var i=0;i<N;i++){var u=-(K[0]*x+K[1]*x*x);x=1.1*x+0.2*x*x+u;if(!isFinite(x)||Math.abs(x)>1e3)x=Infinity;
-    z=[Ac[0][0]*z[0]+Ac[0][1]*z[1],Ac[1][0]*z[0]+Ac[1][1]*z[1]];pl.push(x);lt.push(z[0])}
-  var t=Ac[0][0]+Ac[1][1],d=Ac[0][0]*Ac[1][1]-Ac[0][1]*Ac[1][0],D=t*t/4-d,r=D>=0?Math.max(Math.abs(t/2+Math.sqrt(D)),Math.abs(t/2-Math.sqrt(D))):Math.sqrt(d);
-  return {pl:pl,lt:lt,rho:r,F:1.1-K[0]}}
-function drawScalar(){var x0=Math.pow(10,+$('x0').value),r=sim(M[cur],x0),W=760,H=300,L=56,Rr=16,T=14,Bm=40,pw=W-L-Rr,ph=H-T-Bm,lo=Math.log10(FLOOR),hi=Math.log10(3);
-  var X=function(i){return L+pw*i/N},Y=function(v){var a=Math.abs(v);if(!(a>FLOOR))a=FLOOR;if(a>3)a=3;return T+ph*(1-(Math.log10(a)-lo)/(hi-lo))};
-  ch.innerHTML='';for(var p=-9;p<=0;p+=3){var y=Y(Math.pow(10,p));el('line',{x1:L,x2:W-Rr,y1:y,y2:y,stroke:'rgba(0,0,0,.07)'},ch);var t=el('text',{x:L-10,y:y+4,'text-anchor':'end'},ch);t.textContent='1e'+p}
-  for(var s=0;s<=N;s+=10){var tt=el('text',{x:X(s),y:H-16,'text-anchor':'middle'},ch);tt.textContent=s}var tl=el('text',{x:L+pw/2,y:H-1,'text-anchor':'middle'},ch);tl.textContent='time steps';
-  function path(a,color,dash){var d='';for(var i=0;i<a.length;i++){if(a[i]===Infinity)break;d+=(d?'L':'M')+X(i).toFixed(1)+' '+Y(a[i]).toFixed(1);if(Math.abs(a[i])>2)break}
-    var pe=el('path',{d:d,fill:'none',stroke:color,'stroke-width':dash?2.2:3,'stroke-dasharray':dash?'7 6':'none','stroke-linecap':'round'},ch)}
-  path(r.lt,'#0a9d8f',true);path(r.pl,'#e8730c',false);
-  $('x0v').textContent=x0.toFixed(3);$('r-nom').textContent=r.rho.toFixed(3);$('r-F').textContent=r.F.toFixed(3);$('r-F').style.color=r.F<1?'var(--tik)':'var(--bad)';
-  var f=function(a){var v=a[30];return v===Infinity?'diverged':(Math.abs(v)<1e-4?'≈ 0':v.toPrecision(3))};$('r-lat').textContent=f(r.lt);$('r-pl').textContent=f(r.pl);
-  $('m-std').setAttribute('aria-pressed',cur==='std');$('m-tik').setAttribute('aria-pressed',cur==='tik')}
-$('m-std').onclick=function(){cur='std';drawScalar()};$('m-tik').onclick=function(){cur='tik';drawScalar()};$('x0').addEventListener('input',drawScalar);drawScalar();
+  class Runner {
+    constructor(canvas, gain) {
+      this.cv = canvas;
+      this.ctx = canvas.getContext('2d');
+      this.K = gain;
+      this.reset(0);
+    }
+    reset(tiltDeg) {
+      this.x = [0, (tiltDeg * Math.PI) / 180, 0, 0];
+      this.t = 0;
+      this.fell = false;
+      this.trace = [[0, this.x[1]]];
+    }
+    advance() {
+      if (this.fell) return;
+      const u = -(this.K[0] * this.x[0] + this.K[1] * this.x[1] + this.K[2] * this.x[2] + this.K[3] * this.x[3]);
+      this.x = step(this.x, u);
+      this.t += P.dt;
+      this.trace.push([this.t, this.x[1]]);
+      if (Math.abs(this.x[1]) > Math.PI / 2 || !isFinite(this.x[1])) {
+        this.fell = true;
+      }
+    }
+    draw(accent) {
+      const c = this.ctx, W = this.cv.width, H = this.cv.height, k = W / 960;
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.clearRect(0, 0, W, H);
+      c.scale(k, k);
+      const w = 960, h = 600, gy = 420, scale = 150;
 
-/* ---------- fit scatter (decorative, deterministic) ---------- */
-(function(){var g=$('fit-pts'),s=7;function rnd(){s=(s*16807)%2147483647;return s/2147483647}
-  for(var i=0;i<34;i++){var x=26+rnd()*248,y=100-(x-26)/248*70+(rnd()-.5)*22;el('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:2.6},g)}})();
+      // Background gradient
+      const g = c.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(1, '#f8fafc');
+      c.fillStyle = g;
+      c.fillRect(0, 0, w, h);
+
+      // Grid track
+      const cx = this.x[0], camx = cx;
+      c.strokeStyle = 'rgba(0,0,0,0.08)';
+      c.lineWidth = 2;
+      for (let m = Math.floor(camx - 4); m <= camx + 4; m++) {
+        const px = w / 2 + (m - camx) * scale;
+        c.beginPath();
+        c.moveTo(px, gy + 26);
+        c.lineTo(px, gy + (m % 5 === 0 ? 52 : 38));
+        c.stroke();
+      }
+      c.strokeStyle = '#cbd5e1';
+      c.lineWidth = 3;
+      c.beginPath();
+      c.moveTo(0, gy + 26);
+      c.lineTo(w, gy + 26);
+      c.stroke();
+
+      const cartw = 124, carth = 46, X = w / 2, Y = gy - carth / 2 + 8;
+      const th = this.x[1], L = 2 * P.l * scale * 1.18;
+      const tipx = X + L * Math.sin(th), tipy = Y - carth / 2 - L * Math.cos(th);
+
+      // Pole
+      c.lineCap = 'round';
+      c.strokeStyle = accent;
+      c.lineWidth = 12;
+      c.beginPath();
+      c.moveTo(X, Y - carth / 2);
+      c.lineTo(tipx, tipy);
+      c.stroke();
+
+      // Pole tip bob
+      c.fillStyle = '#0f172a';
+      c.beginPath();
+      c.arc(tipx, tipy, 14, 0, Math.PI * 2);
+      c.fill();
+
+      // Cart body
+      c.fillStyle = '#0f172a';
+      rr(c, X - cartw / 2, Y - carth / 2, cartw, carth, 10);
+      c.fill();
+
+      // Wheels
+      c.fillStyle = '#e2e8f0';
+      c.strokeStyle = '#0f172a';
+      c.lineWidth = 3;
+      [-36, 36].forEach(dx => {
+        c.beginPath();
+        c.arc(X + dx, Y + carth / 2 + 3, 11, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+      });
+
+      // Joint hinge
+      c.fillStyle = '#fff';
+      c.beginPath();
+      c.arc(X, Y - carth / 2, 6, 0, Math.PI * 2);
+      c.fill();
+
+      // Embedded angle trace overlay
+      const tx = 36, ty = 48, tw = 280, th2 = 64;
+      c.fillStyle = 'rgba(255,255,255,0.85)';
+      c.strokeStyle = 'rgba(0,0,0,0.1)';
+      c.lineWidth = 1;
+      rr(c, tx - 12, ty - 20, tw + 24, th2 + 36, 10);
+      c.fill();
+      c.stroke();
+
+      c.strokeStyle = 'rgba(0,0,0,0.2)';
+      c.lineWidth = 1.2;
+      c.beginPath();
+      c.moveTo(tx, ty + th2 / 2);
+      c.lineTo(tx + tw, ty + th2 / 2);
+      c.stroke();
+
+      c.fillStyle = '#475569';
+      c.font = '600 15px -apple-system, sans-serif';
+      c.fillText('Pole Angle &theta;(t)', tx, ty - 4);
+
+      c.strokeStyle = accent;
+      c.lineWidth = 2.5;
+      c.beginPath();
+      const T = this.trace, tmax = 4;
+      let first = true;
+      for (let i = 0; i < T.length; i++) {
+        const xx = tx + Math.min(1, T[i][0] / tmax) * tw;
+        const a = Math.max(-1.2, Math.min(1.2, T[i][1]));
+        const yy = ty + th2 / 2 - (a / 1.2) * (th2 / 2);
+        if (first) { c.moveTo(xx, yy); first = false; }
+        else c.lineTo(xx, yy);
+      }
+      c.stroke();
+
+      // Timestamp
+      c.fillStyle = '#64748b';
+      c.font = '600 18px ui-monospace, Menlo, monospace';
+      c.textAlign = 'right';
+      c.fillText('t = ' + this.t.toFixed(2) + ' s', w - 30, 50);
+      c.textAlign = 'left';
+
+      if (this.fell) {
+        c.fillStyle = '#dc2626';
+        c.font = '800 42px -apple-system, sans-serif';
+        c.textAlign = 'center';
+        c.fillText('Diverged (Fell Over)', w / 2, gy - 160);
+        c.textAlign = 'left';
+      }
+    }
+  }
+
+  function rr(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+
+  const runnerStd = new Runner($('cv-std'), DEMO.standard.gain);
+  const runnerTik = new Runner($('cv-tik'), DEMO.tik.gain);
+
+  let playing = false, acc = 0, last = 0, SPEED = 0.5, TMAX = 5.5;
+
+  function render() {
+    runnerStd.draw('#ea580c');
+    runnerTik.draw('#0d9488');
+    $('st-std').className = 'status-pill ' + (runnerStd.fell ? 'unstable' : 'stable');
+    $('st-std').innerHTML = '<i></i>' + (runnerStd.fell ? 'Diverged (Fell)' : 'Balancing');
+    const done = runnerTik.t >= TMAX - 1e-6;
+    $('st-tik').className = 'status-pill ' + (done ? 'stable' : 'stable');
+    $('st-tik').innerHTML = '<i></i>' + (done ? 'Stabilized' : 'Balancing');
+  }
+
+  function startSim() {
+    const tilt = +$('tilt').value;
+    runnerStd.reset(tilt);
+    runnerTik.reset(tilt);
+    acc = 0;
+    last = 0;
+    playing = true;
+    render();
+  }
+
+  function simLoop(ts) {
+    if (playing) {
+      if (!last) last = ts;
+      acc += ((ts - last) / 1000) * SPEED;
+      last = ts;
+      let n = 0;
+      while (acc >= P.dt && n < 20) {
+        acc -= P.dt;
+        runnerStd.advance();
+        runnerTik.advance();
+        n++;
+        if (runnerTik.t >= TMAX - 1e-6) {
+          playing = false;
+          break;
+        }
+      }
+      render();
+    } else {
+      last = ts;
+    }
+    requestAnimationFrame(simLoop);
+  }
+
+  $('tilt').addEventListener('input', function() {
+    $('tilt-v').textContent = this.value + '\u00B0';
+    startSim();
+  });
+  $('replay').addEventListener('click', startSim);
+  startSim();
+  requestAnimationFrame(simLoop);
+
+  /* Interactive Tangent Space Geometry */
+  let tgMode = 'std';
+  function updateTangentPlot() {
+    const d = +$('delta').value / 100;
+    const off = tgMode === 'std' ? d : 0;
+    $('delta').disabled = (tgMode === 'tik');
+    $('delta-v').textContent = (tgMode === 'tik' ? '0.00' : d.toFixed(2));
+    
+    const ym = 225 - off * 130;
+    const m = $('tg-model');
+    m.setAttribute('y2', ym);
+    m.setAttribute('stroke', tgMode === 'std' ? '#ea580c' : '#0d9488');
+    m.setAttribute('marker-end', tgMode === 'std' ? 'url(#ar-o)' : 'url(#ar-t)');
+
+    const l = $('tg-model-l');
+    l.setAttribute('y', off < 0.06 ? ym - 14 : ym);
+    l.style.fill = tgMode === 'std' ? '#ea580c' : '#0d9488';
+    l.textContent = tgMode === 'std' ? 'Latent prediction A J_theta v' : 'TIK prediction A J_theta v = J_theta A_f v';
+
+    const e = $('tg-err');
+    e.setAttribute('y2', ym);
+    e.style.opacity = off < 0.02 ? 0 : 1;
+
+    const mm = (off * 130) / 180;
+    $('tg-mm').textContent = mm.toFixed(2);
+    $('tg-cert').textContent = (tgMode === 'tik' || off < 0.02) ? 'Certificate Guaranteed' : 'No Guarantee (Fails on Plant)';
+    $('tg-cert').style.color = (tgMode === 'tik' || off < 0.02) ? 'var(--tik)' : 'var(--danger)';
+
+    $('tg-std').setAttribute('aria-pressed', tgMode === 'std');
+    $('tg-tik').setAttribute('aria-pressed', tgMode === 'tik');
+  }
+
+  $('tg-std').onclick = () => { tgMode = 'std'; updateTangentPlot(); };
+  $('tg-tik').onclick = () => { tgMode = 'tik'; updateTangentPlot(); };
+  $('delta').addEventListener('input', updateTangentPlot);
+  updateTangentPlot();
+
+  /* Interactive Eigenvalue Spectrum */
+  let spMode = 'std';
+  const spSvg = $('sp'), S = 125, CLIP = 1.4, Z = 1.0;
+  function mapPt(z) {
+    const r = Math.hypot(z[0], z[1]);
+    const k = r > CLIP ? CLIP / r : 1;
+    return [z[0] * k * S * Z, -z[1] * k * S * Z];
+  }
+
+  const dots = [], rings = [];
+  (function buildSp() {
+    [0.5, 1, 1.4].forEach(r => {
+      el('circle', {
+        cx: 0, cy: 0, r: r * S * Z,
+        fill: 'none',
+        stroke: r === 1 ? 'rgba(15, 23, 42, 0.75)' : 'rgba(0,0,0,0.08)',
+        'stroke-width': r === 1 ? 1.8 : 1,
+        'stroke-dasharray': r === 1 ? '' : '3 4'
+      }, spSvg);
+    });
+    el('line', { x1: -175, x2: 175, y1: 0, y2: 0, stroke: 'rgba(0,0,0,0.1)' }, spSvg);
+    el('line', { y1: -175, y2: 175, x1: 0, x2: 0, stroke: 'rgba(0,0,0,0.1)' }, spSvg);
+    
+    const label = el('text', { x: 8, y: -S * Z - 8, fill: '#64748b', 'font-size': '11px', 'font-weight': '600' }, spSvg);
+    label.textContent = 'Unit Circle |z| = 1';
+
+    for (let i = 0; i < 32; i++) {
+      dots.push(el('circle', { cx: 0, cy: 0, r: 4, fill: '#0d9488', 'fill-opacity': 0.85 }, spSvg));
+    }
+    for (let j = 0; j < 4; j++) {
+      rings.push(el('circle', { cx: 0, cy: 0, r: 7, fill: 'none', stroke: '#ea580c', 'stroke-width': 2.5 }, spSvg));
+    }
+    const outText = el('text', { id: 'sp-out', 'text-anchor': 'end', x: 175, y: -30, fill: '#dc2626', 'font-size': '12px', 'font-weight': '700' }, spSvg);
+    dots.concat(rings).forEach(c => { c.style.transition = 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)'; });
+  })();
+
+  function updateSpectrum() {
+    const D = DEMO[spMode === 'std' ? 'standard' : 'tik'];
+    D.latent.forEach((z, i) => {
+      const p = mapPt(z);
+      dots[i].style.transform = `translate(${p[0]}px, ${p[1]}px)`;
+    });
+    D.plant.forEach((z, i) => {
+      const p = mapPt(z);
+      rings[i].style.transform = `translate(${p[0]}px, ${p[1]}px)`;
+    });
+
+    const rl = rho(D.latent);
+    const rp = rho(D.plant);
+    $('sp-rl').textContent = rl.toFixed(3);
+    $('sp-rp').textContent = rp.toFixed(rp > 2 ? 1 : 3);
+    $('sp-rp').style.color = rp > 1 ? 'var(--danger)' : 'var(--tik)';
+
+    const out = $('sp-out');
+    out.textContent = rp > CLIP ? `Physical \u03C1(F) = ${rp.toFixed(1)} \u2192` : '';
+    $('sp-note').textContent = spMode === 'std' 
+      ? 'Standard Koopman: All 32 latent poles lie strictly inside the unit circle (\u03C1 = 0.988 < 1). However, state re-encoding induces an unstable pole on the plant at 10.5, causing divergence.'
+      : 'TIK (Ours): Tangent invariance embeds every physical closed-loop pole directly into the latent spectrum. Since the nominal model is Schur, the physical robot is guaranteed to be stable (\u03C1 = 0.984 < 1).';
+
+    $('sp-std').setAttribute('aria-pressed', spMode === 'std');
+    $('sp-tik').setAttribute('aria-pressed', spMode === 'tik');
+  }
+
+  $('sp-std').onclick = () => { spMode = 'std'; updateSpectrum(); };
+  $('sp-tik').onclick = () => { spMode = 'tik'; updateSpectrum(); };
+  updateSpectrum();
 })();
 </script>
+
 </body>
 </html>

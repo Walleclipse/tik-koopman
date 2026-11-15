@@ -143,3 +143,21 @@ def test_training_reduces_prediction_loss(plant):
     before = prediction_loss(model, x, u, 0.8).item()
     tik.train_standard(model, data, tik.TrainConfig(steps=300, horizon=10, log_every=10**9, control_loss_weight=0.0), verbose=False)
     assert prediction_loss(model, x, u, 0.8).item() < before
+
+
+def test_custom_encoder_and_bilinear_preserve_local_guarantees(plant):
+    """Proposition 4(c): custom encoder width/depth and nonzero bilinear terms N_j leave local guarantees unchanged."""
+    torch.manual_seed(2)
+    base = tik.KoopmanModel(plant.n_x, plant.n_u, latent_per_state=4, width=64, depth=3)
+    A_f, B_f = plant.linearize()
+    model = tik.TIKKoopman(base, A_f, B_f, bilinear=True)
+    with torch.no_grad():
+        model.W.copy_(0.2 * torch.randn_like(model.W) / np.sqrt(model.n_z))
+        model.N.copy_(0.5 * torch.randn_like(model.N))
+    ctl = tik.KoopmanLQR.from_model(model)
+    K_hat, _ = tik.dlqr(A_f, B_f, np.eye(4), np.eye(1))
+    assert np.allclose(ctl.K @ ctl.J, K_hat, atol=1e-7)
+    z1 = model.encode(torch.zeros(plant.n_x, dtype=torch.float64))
+    u1 = torch.zeros(plant.n_u, dtype=torch.float64)
+    assert torch.allclose(model.step(z1, u1, model.matrices()), torch.zeros_like(z1))
+

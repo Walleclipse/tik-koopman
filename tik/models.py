@@ -17,6 +17,7 @@ class BaseKoopman(nn.Module):
         super().__init__()
         self.n_x, self.n_u = n_x, n_u
         self.n_z = n_x * latent_per_state
+        self.width, self.depth = width, depth
         layers: list[nn.Module] = []
         d = n_x
         for _ in range(depth):
@@ -33,7 +34,8 @@ class BaseKoopman(nn.Module):
 
     def jacobian(self, create_graph: bool = False) -> torch.Tensor:
         """``J = dPhi/dx`` at the target, shape ``(n_z, n_x)``. Differentiable when ``create_graph`` is set."""
-        origin = torch.zeros(self.n_x, dtype=torch.float64)
+        p = next(self.parameters())
+        origin = torch.zeros(self.n_x, dtype=p.dtype, device=p.device)
         return torch.autograd.functional.jacobian(self.encode, origin, create_graph=create_graph)
 
     # -- dynamics ---------------------------------------------------------------------------------------------------
@@ -92,28 +94,28 @@ class TIKKoopman(BaseKoopman):
     """
 
     def __init__(self, base: KoopmanModel, A_f_hat, B_f_hat, bilinear: bool = False):
-        super().__init__(base.n_x, base.n_u, latent_per_state=base.n_z // base.n_x)
+        super().__init__(base.n_x, base.n_u, latent_per_state=base.n_z // base.n_x, width=base.width, depth=base.depth)
         self.psi.load_state_dict(base.psi.state_dict())
         self.W = nn.Parameter(base.A.detach().clone())
         self.N = nn.Parameter(torch.zeros(base.n_u, self.n_z, self.n_z)) if bilinear else None
-        self.register_buffer("A_f_hat", torch.as_tensor(A_f_hat))
-        self.register_buffer("B_f_hat", torch.as_tensor(B_f_hat))
+        self.register_buffer("A_f_hat", torch.as_tensor(A_f_hat, dtype=torch.float64))
+        self.register_buffer("B_f_hat", torch.as_tensor(B_f_hat, dtype=torch.float64))
         self.double()
 
     def matrices(self):
         J = self.jacobian(create_graph=True)
         J_pinv = torch.linalg.pinv(J)
-        complement = torch.eye(self.n_z, dtype=J.dtype) - J @ J_pinv
+        complement = torch.eye(self.n_z, dtype=J.dtype, device=J.device) - J @ J_pinv
         return J @ self.A_f_hat @ J_pinv + self.W @ complement, J @ self.B_f_hat
 
     def step(self, z, u, matrices):
         z_next = super().step(z, u, matrices)
         if self.N is not None:
-            z_next = z_next + torch.einsum("bj,jkl,bl->bk", u, self.N, z)
+            z_next = z_next + torch.einsum("...j,jkl,...l->...k", u, self.N, z)
         return z_next
 
     def complement_radius(self) -> torch.Tensor:
         """Spectral radius of ``(I - J J^+) W (I - J J^+)``. The LQR guarantee (Proposition 4) needs it below one."""
         J = self.jacobian(create_graph=True)
-        complement = torch.eye(self.n_z, dtype=J.dtype) - J @ torch.linalg.pinv(J)
+        complement = torch.eye(self.n_z, dtype=J.dtype, device=J.device) - J @ torch.linalg.pinv(J)
         return torch.linalg.eigvals(complement @ self.W @ complement).abs().max()

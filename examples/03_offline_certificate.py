@@ -1,11 +1,11 @@
-"""Offline stability test (Theorem 5) and a certified terminal set (Theorem 7) for the cart-pole, from data only.
+"""Offline stability test (Theorem 6) and a certified terminal set (Theorem 8) for the cart-pole, from data only.
 
 For transitions at several distances from the upright target:
 
 1. fit the local linearization (Eq. 6) and its LQR gain K_hat (for TIK this is the deployed local gain, Prop. 4);
-2. estimate curvature bounds (empirical, safety factor 2), bound the fit error eta (Eq. 8, cubic remainder) and compare it with a
-   lower bound on the stability margin of F_hat = A_f_hat - B_f_hat K_hat;
-3. try to build the terminal ellipsoid of Theorem 7 and check by simulation that the local controller keeps sampled points inside.
+2. estimate curvature bounds (empirical, safety factor 2), bound the fit error eta (Eq. 8 with the cubic remainder of Corollary 12)
+   and compare it with a lower bound on the stability margin of F_hat = A_f_hat - B_f_hat K_hat;
+3. try to build the terminal ellipsoid of Theorem 8 and check by simulation that the local controller keeps sampled points inside.
 
 The tests only certify when the fit is accurate enough: the Euclidean-norm terminal-set condition is the more demanding one.
 Run:  python examples/03_offline_certificate.py

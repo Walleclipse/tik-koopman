@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite the paper."
-title: "TIK: Making Koopman Control Guarantees Hold on Robots"
+title: "Making Koopman Control Guarantees Hold on Robots"
 type: software
 authors:
   - family-names: Abuduweili
@@ -10,5 +10,5 @@ authors:
 repository-code: "https://github.com/Walleclipse/tik-koopman"
 url: "https://walleclipse.github.io/tik-koopman/"
 license: MIT
-year: 2027
-# Update with the venue and arXiv identifier when available.
+year: 2026
+# Update with the venue and arXiv identifier once the paper is public.

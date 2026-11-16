@@ -25,23 +25,31 @@ def tangent_defect(A, B, A_f, B_f, K, J) -> np.ndarray:
     return J @ F - (A - B @ K) @ J
 
 
+def _smallest_singular_value_on_circle(M: np.ndarray, m: int, chunk: int = 4096) -> float:
+    """``min_k sigma_min(s_k I - M)`` over ``m`` equally spaced points ``s_k`` of the unit circle, in chunks to bound memory."""
+    eye = np.eye(len(M))
+    best = np.inf
+    for start in range(0, m, chunk):
+        s = np.exp(2j * np.pi * np.arange(start, min(start + chunk, m)) / m)
+        best = min(best, float(np.linalg.svd(s[:, None, None] * eye[None] - M[None], compute_uv=False)[:, -1].min()))
+    return best
+
+
 def distance_to_unit_circle(M: np.ndarray, n_points: int = 720, max_points: int = 1 << 18) -> float:
     """Conservative lower bound on ``d_1(M) = min_{|s|=1} sigma_min(sI - M)``.
 
     The minimum over ``n_points`` equally spaced points on the unit circle is corrected by the Lipschitz constant of
-    ``sigma_min`` along the circle, ``2 sin(pi / (2 n))``. The grid is refined (up to ``max_points``) until the correction is below
-    10 % of the sampled minimum, so the bound stays informative for strongly nonnormal matrices. It is a valid lower bound up to
-    floating-point error in the SVDs.
+    ``sigma_min`` along the circle, ``2 sin(pi / (2 n))``. The grid is refined (never beyond ``max_points``) until the correction is
+    below 10 % of the sampled minimum, so the bound stays informative for strongly nonnormal matrices. The SVDs run in chunks, so
+    memory does not grow with the grid. It is a valid lower bound up to floating-point error in the SVDs.
     """
-    n = len(M)
-    m = n_points
+    m = min(n_points, max_points)
     while True:
-        s = np.exp(2j * np.pi * np.arange(m) / m)
-        smin = float(np.min(np.linalg.svd(s[:, None, None] * np.eye(n)[None] - M[None], compute_uv=False)[:, -1]))
+        smin = _smallest_singular_value_on_circle(M, m)
         corr = 2 * np.sin(np.pi / (2 * m))
         if corr <= 0.1 * smin or m >= max_points:
             return max(0.0, smin - corr)
-        m *= 4
+        m = min(4 * m, max_points)
 
 
 def transfer_holds(defect: np.ndarray, A_cl: np.ndarray) -> bool:
@@ -62,7 +70,7 @@ class OfflineVerdict:
 
 def offline_stability_test(fit: LocalFit, K_o: np.ndarray, curvature: float, noise: float = 0.0,
                            third: float | None = None) -> OfflineVerdict:
-    """Theorem 5: a stability verdict for the deployed loop from offline data only.
+    """Theorem 6: a stability verdict for the deployed loop from offline data only.
 
     ``K_o`` is the Jacobian of the deployed policy (``u = -K_o x`` locally); for TIK it equals the LQR gain of the fit.
     The test compares the fit error ``eta(Gamma)`` with a lower bound on the stability radius of
@@ -106,15 +114,18 @@ def _lyapunov_quantities(F_hat: np.ndarray, Q: np.ndarray):
 
 
 def terminal_set(F_hat: np.ndarray, eta: float, L_H: float, L_T: float = 0.0, Q: np.ndarray | None = None) -> TerminalSet | None:
-    """Theorem 7: a forward-invariant ellipsoid of ``x -> f(x, -K_hat x)``, or ``None`` if the condition cannot be met.
+    """Theorem 8: a forward-invariant ellipsoid of ``x -> f(x, -K_hat x)``, or ``None`` if the condition cannot be met.
 
     Solves ``F_hat' S F_hat - S = -Q``, sets ``vartheta = |S^{1/2} F_hat S^{-1/2}|_2`` and ``kappa = cond(S)``, and takes the largest
     radius ``r`` with ``vartheta + sqrt(kappa) (eta + L_H r / 2 + L_T r^2 / 6) <= 1``. Any ``c <= lambda_min(S) r^2`` whose ellipsoid
-    also fits the state and input limits is invariant. Intersecting with those limits is left to the caller.
+    also fits the state and input limits is invariant. Intersecting with those limits is left to the caller. Returns ``None`` if
+    ``F_hat`` is not Schur.
 
     Any ``Q > 0`` is allowed. If ``Q`` is None we search diagonal ``Q`` (log-uniform, fixed seed) for the one that maximizes the slack
     ``(1 - vartheta) / sqrt(kappa)``, which is the quantity ``eta`` has to stay below.
     """
+    if spectral_radius(F_hat) >= 1:
+        return None                     # no Lyapunov matrix S > 0 exists
     n = len(F_hat)
     if Q is None:
         rng = np.random.default_rng(0)

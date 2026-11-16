@@ -49,10 +49,10 @@ def fit_error_bound(fit: LocalFit, Gamma: np.ndarray, curvature: float, noise: f
     """``eta(Gamma)`` in Eq. (8): a bound on ``|(D_hat - D_f) Gamma|_2``.
 
     Needs ``curvature``, a bound ``L`` on the Hessian of the plant on the fit neighborhood, and ``noise``, a bound on the
-    successor measurement error. Both are assumptions (Assumption 1); estimate ``L`` conservatively.
+    successor measurement error. Both are assumptions (Assumption 5); estimate ``L`` conservatively.
     Each transition contributes ``w_i rho_i |Gamma' g_i|_2`` with ``rho_i = L/2 |p_i|^2 + eps`` and ``g_i`` the first
     ``n_x + n_u`` entries of ``Sigma^{-1} [p_i; 1]``. If ``third`` (a bound on the third derivative on the neighborhood) is given,
-    ``curvature`` is read as the second derivative *at the target* and ``rho_i = L_H/2 |p_i|^2 + L_T/6 |p_i|^3 + eps`` (Corollary 4).
+    ``curvature`` is read as the second derivative *at the target* and ``rho_i = L_H/2 |p_i|^2 + L_T/6 |p_i|^3 + eps`` (Corollary 12).
     That is much tighter at equilibria where the second derivative vanishes, as for an upright pendulum.
     """
     q = np.hstack([fit.p, np.ones((len(fit.p), 1))])
@@ -69,7 +69,7 @@ def estimate_derivative_bound(plant, order: int, radius: float = 0.0, n_samples:
     The directional derivative ``|D^k f(p)[a_1, ..., a_k]|`` is estimated by a finite difference along random unit directions
     ``a_i``, at random points ``p`` with ``|p|_2 <= radius`` (``radius = 0`` evaluates at the target only), maximized over the
     samples and multiplied by ``safety``. Use ``order=2, radius=0`` for ``L_H`` and ``order=3`` for ``L_T`` of the cubic remainder, or
-    ``order=2, radius>0`` for the single constant ``L`` of Assumption 1. These are *estimates*: the paper's guarantees need valid
+    ``order=2, radius>0`` for the single constant ``L`` of Assumption 5. These are *estimates*: the paper's guarantees need valid
     bounds, so verdicts that use them are empirical.
     """
     rng = np.random.default_rng(seed)

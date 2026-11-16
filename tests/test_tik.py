@@ -161,3 +161,31 @@ def test_custom_encoder_and_bilinear_preserve_local_guarantees(plant):
     u1 = torch.zeros(plant.n_u, dtype=torch.float64)
     assert torch.allclose(model.step(z1, u1, model.matrices()), torch.zeros_like(z1))
 
+
+
+def test_unit_circle_bound_never_builds_a_huge_batch(monkeypatch):
+    """A nearly marginal matrix needs a fine grid; the SVD batches must stay small and the grid must respect ``max_points``."""
+    from tik import certify
+
+    batches, grids = [], []
+    real_svd, real_scan = np.linalg.svd, certify._smallest_singular_value_on_circle
+
+    def spy_svd(a, *args, **kwargs):
+        batches.append(len(a))
+        return real_svd(a, *args, **kwargs)
+
+    def spy_scan(M, m, *args, **kwargs):
+        grids.append(m)
+        return real_scan(M, m, *args, **kwargs)
+
+    monkeypatch.setattr(np.linalg, "svd", spy_svd)
+    monkeypatch.setattr(certify, "_smallest_singular_value_on_circle", spy_scan)
+    M = 0.99995 * np.eye(8)                                   # sigma_min(sI - M) is about 5e-5 at s = 1
+    lower = tik.distance_to_unit_circle(M, max_points=20000)
+    assert 0 <= lower <= 5.1e-5
+    assert max(batches) <= 4096                               # chunked, so memory does not grow with the grid
+    assert max(grids) == 20000                                # refined up to the cap, never beyond it
+
+
+def test_terminal_set_needs_a_schur_fit():
+    assert tik.terminal_set(np.array([[1.05, 0.0], [0.0, 0.5]]), eta=0.0, L_H=1.0) is None

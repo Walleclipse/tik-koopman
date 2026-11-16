@@ -97,11 +97,10 @@ Standard Koopman passes on the model and fails on the robot. For TIK, both numbe
 ## Citation
 
 ```bibtex
-@misc{abuduweili2026tik,
-  title  = {Making {Koopman} Control Guarantees Hold on Robots},
-  author = {Abuduweili, Abulikemu and Liu, Changliu},
-  year   = {2026},
-  note   = {Manuscript under review},
-  url    = {https://github.com/Walleclipse/tik-koopman}
+@article{abuduweili2026tik,
+  title   = {Making {Koopman} Control Guarantees Hold on Robots},
+  author  = {Abuduweili, Abulikemu and Liu, Changliu},
+  journal = {arXiv preprint},
+  year    = {2026}
 }
 ```

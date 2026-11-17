@@ -3,8 +3,7 @@
 **Tangent-Invariant Koopman (TIK): certified on the model, stable on the robot.**
 
 [![Project page](https://img.shields.io/badge/Project%20page-online-0f766e)](https://walleclipse.github.io/tik-koopman/)
-[![Paper](https://img.shields.io/badge/Paper-PDF-1b1f24)](https://walleclipse.github.io/tik-koopman/assets/paper.pdf)
-[![CI](https://github.com/Walleclipse/tik-koopman/actions/workflows/ci.yml/badge.svg)](https://github.com/Walleclipse/tik-koopman/actions/workflows/ci.yml)
+[![arXiv](https://img.shields.io/badge/arXiv-2611.20402-b31b1b.svg)](https://arxiv.org/abs/2611.20402)
 
 Abulikemu Abuduweili and Changliu Liu · Robotics Institute, Carnegie Mellon University
 
@@ -98,9 +97,10 @@ Standard Koopman passes on the model and fails on the robot. For TIK, both numbe
 
 ```bibtex
 @article{abuduweili2026tik,
-  title   = {Making {Koopman} Control Guarantees Hold on Robots},
+  title   = {Making Koopman Control Guarantees Hold on Robots},
   author  = {Abuduweili, Abulikemu and Liu, Changliu},
-  journal = {arXiv preprint},
-  year    = {2026}
+  journal = {arXiv preprint arXiv:2611.20402},
+  year    = {2026},
+  url={https://arxiv.org/abs/2611.20402}, 
 }
 ```

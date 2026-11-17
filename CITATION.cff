@@ -10,5 +10,15 @@ authors:
 repository-code: "https://github.com/Walleclipse/tik-koopman"
 url: "https://walleclipse.github.io/tik-koopman/"
 license: MIT
+preferred-citation:
+  type: article
+  journal: "arXiv preprint arXiv:2611.20402"
+  url: "https://arxiv.org/abs/2611.20402"
+  title: "Making Koopman Control Guarantees Hold on Robots"
+  authors:
+  - family-names: Abuduweili
+    given-names: Abulikemu
+  - family-names: Liu
+    given-names: Changliu
 year: 2026
 # Update with the venue and arXiv identifier once the paper is public.
